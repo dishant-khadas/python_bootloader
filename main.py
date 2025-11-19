@@ -251,24 +251,42 @@ class ProgramPage(ttk.Frame):
             padding=30,
             command=self.start_program_logic
         ).pack(pady=100)
+
     def start_program_logic(self):
         print("Turning pins HIGH, LED ON, Display ON")
         turn_BL_Detect_High()
         turn_display_On()
+
         from du_reader import read_du_from_serial
 
         def ui_message(msg):
             print("STATUS:", msg)
 
-        def ui_success(options):
-            print("SUCCESS — DU List:", options)
+        def ui_success(data):
+            print("SUCCESS — DU List:", data)
             messagebox.showinfo("DU Loaded", "DU Data Received")
+            # Save DU response for next page (file list)
+            self.controller.du_options = data["options"]
+            self.controller.is_encryption_enable = data["isEncryptionEnable"]
+            # TODO: Navigate to File Selection Page
+
+        def ui_error(msg):
+            print("ERROR:", msg)
+            messagebox.showerror("Error", msg)
 
         threading.Thread(
             target=read_du_from_serial,
-            args=(self.controller.token, ui_message, ui_success),
+            args=(
+                self.controller.token,  # auth token
+                ui_message,
+                ui_success,
+                ui_error,
+                "/dev/ttyAMA0",   # RasPi UART
+                115200
+            ),
             daemon=True
         ).start()
+
     # inside ProgramPage class - on file selected & Download button pressed
     def on_download_and_flash(self, selected_file_id):
         token = self.controller.token
