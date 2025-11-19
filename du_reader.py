@@ -15,10 +15,19 @@ def calculate_crc16(data_bytes):
     # TODO: implement same CRC16 as JS
     return "0000"
 
-def calculate_little_endian(crc_value):
-    # convert integer CRC into hex-little-endian string
-    le = crc_value.to_bytes(2, 'little').hex()
-    return le
+def calculate_little_endian(crc_value: int) -> str:
+    """
+    Convert integer CRC into a 2-byte little-endian hex string (lowercase).
+    Equivalent to JS:
+    ((crc >> 8) | ((crc & 0xFF) << 8)).toString(16).padStart(4, "0")
+    """
+    if not isinstance(crc_value, int):
+        # If accidentally passed hex string (like "abcd") convert it
+        crc_value = int(crc_value, 16)
+
+    le = ((crc_value >> 8) | ((crc_value & 0xFF) << 8)) & 0xFFFF
+    return f"{le:04x}"
+
 
 def decrypt_hex(hex_string):
     # TODO: implement Python equivalent for Decrypt() JS function
