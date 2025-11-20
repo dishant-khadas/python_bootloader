@@ -16,6 +16,9 @@ from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
 
 import hashlib
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # --------- helper: sha256 of bytes (hex) ----------
 def sha256_hex_of_bytes(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()

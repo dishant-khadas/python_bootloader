@@ -9,6 +9,9 @@ from decrypt_utils import decrypt_hex_block
 from du_utils import calculate_crc16, calculate_little_endian
 from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Configurable defaults
 DEFAULT_SERIAL_PORT = os.getenv("SERIAL_PORT", "/dev/ttyS3")
 DEFAULT_BAUDRATE = int(os.getenv("SERIAL_BAUD", "115200"))
