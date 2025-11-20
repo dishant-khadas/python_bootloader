@@ -1,0 +1,4 @@
+SERVER_URL=https://bootloader.czarmertricsystem.com
+DEVICE_ID=41999990
+SERIAL_PORT=/dev/ttyAMA0
+BAUDRATE=115200
