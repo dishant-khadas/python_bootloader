@@ -46,6 +46,18 @@ def parse_du_and_display_from_hex(first_block_hex: str):
     return du_number, display_number
 
 
+def parse_du_and_display_from_hex(hex_str: str):
+    """
+    EXACT JS BEHAVIOR:
+    duNumber     = Number("0x" + receivedData.slice(2, 10))
+    displayNumber= Number("0x" + receivedData.slice(10,18))
+    """
+    du_hex = hex_str[2:10]          # hex characters, not bytes
+    display_hex = hex_str[10:18]
+
+    return int(du_hex, 16), int(display_hex, 16)
+
+
 
 def read_du_from_serial(
     token: str,
@@ -247,15 +259,13 @@ def read_du_from_serial(
 
             # Passed validation — extract DU & Display numbers
             try:
-                du_number, display_number = _parse_du_and_display(buffer_bytes)
+                du_number, display_number = parse_du_and_display_from_hex(first_block_hex)
             except Exception as e:
                 ser.close()
-                try:
-                    turn_BL_Detect_Low()
-                except:
-                    pass
+                turn_BL_Detect_Low()
                 callback_ui_error(f"Parsing DU/Display failed: {e}")
                 return
+
 
             # close serial and pull BL pin low like JS
             try:
