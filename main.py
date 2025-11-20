@@ -12,6 +12,9 @@ from gpio_control import (
     turn_display_Off
 )
 
+from dotenv import load_dotenv
+load_dotenv()
+
 
 import threading 
 from du_reader import read_du_from_serial
