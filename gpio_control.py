@@ -1,5 +1,8 @@
 import subprocess
 import os
+import platform
+
+IS_WINDOWS = platform.system() == "Windows"
 
 # BL_DETECT_Pin = int(os.getenv("BL_DETECT_PIN", "26"))      # example default
 BL_DETECT_Pin = 17
@@ -12,6 +15,10 @@ GPIOCHIP = "gpiochip4"  # same as your Node code
 
 def run_cmd(cmd):
     """Execute shell command safely and print output."""
+    if IS_WINDOWS:
+        print(f"[MOCK-GPIO] Would execute: {cmd}")
+        return
+
     try:
         print("Executing:", cmd)
         subprocess.run(cmd, shell=True, check=True)
@@ -21,12 +28,14 @@ def run_cmd(cmd):
 
 def turn_BL_Detect_High():
     run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_Pin}=1")
-    print(f"GPIO {BL_DETECT_Pin} HIGH")
+    if not IS_WINDOWS:
+      print(f"GPIO {BL_DETECT_Pin} HIGH")
 
 
 def turn_BL_Detect_Low():
     run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_Pin}=0")
-    print(f"GPIO {BL_DETECT_Pin} LOW")
+    if not IS_WINDOWS:
+        print(f"GPIO {BL_DETECT_Pin} LOW")
 
 
 def turn_display_On():

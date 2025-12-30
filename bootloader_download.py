@@ -159,7 +159,8 @@ def download_and_flash(file_id: str,
         # 7) Write final packet to serial port
         callback_message("Opening serial port to write final packet...")
         try:
-            ser = serial.Serial("/dev/ttyAMA0", baudrate=115200, timeout=5)
+            port_name = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
+            ser = serial.Serial(port_name, baudrate=115200, timeout=5)
         except Exception as e:
             callback_error(f"Serial port open failed: {e}")
             return False
