@@ -54,10 +54,11 @@ class App(ttk.Window):
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
-        for Page in (ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage):
-            frame = Page(parent=self.container, controller=self)
-            frame.place(relwidth=1, relheight=1)
-            self.frames[Page] = frame
+        for Page in (ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, ErrorPage):
+           frame = Page(parent=self.container, controller=self)
+           frame.place(relwidth=1, relheight=1)
+           self.frames[Page] = frame
+
 
         # ---- Auto-detect WiFi ----
         ssid = get_connected_ssid()
@@ -69,6 +70,12 @@ class App(ttk.Window):
 
     def show_frame(self, page):
         self.frames[page].tkraise()
+        
+    def show_error(self, title, message, return_frame):
+        error_page = self.frames[ErrorPage]
+        error_page.set_error(title, message, return_frame)
+        self.show_frame(ErrorPage)
+
 
 
 # ------------ PAGE 1: Scan WiFi ------------
@@ -236,11 +243,15 @@ class WifiPasswordPage(ttk.Frame):
             return
 
         if not ok:
-            self.controller.after(0, lambda: messagebox.showerror(
-                "Wrong Password", "Incorrect password. Try again."
-            ))
-            self.controller.after(0, lambda: self.controller.show_frame(ScanPage))
+            self.controller.after(0, lambda: self.controller.show_error(
+                title="Wrong Password", 
+                message="Incorrect password. Try again.",
+                return_frame=WifiPasswordPage
+                )
+            )
             return
+        self.controller.after(0, lambda: self.controller.show_frame(ScanPage))
+            
 
         # Step 2: check internet
         connecting_page.set_text("Checking Internet...")
@@ -471,7 +482,11 @@ class LoginPage(ttk.Frame):
         password = self.password.get().strip()
 
         if not phone or not password:
-            messagebox.showerror("Error", "Enter phone number and password")
+            self.controller.show_error(
+                title="Invalid Input",
+                message="Please enter both phone number and password.",
+                return_frame=LoginPage
+                )
             return
 
         # Start connecting page animation
@@ -487,19 +502,21 @@ class LoginPage(ttk.Frame):
         ok, token = login_api(phone, password)
 
         if not ok:
-            self.controller.after(0, lambda: messagebox.showerror(
-                "Login Failed",
-                "Incorrect phone or password."
-            ))
-            self.controller.after(0, lambda: self.controller.show_frame(LoginPage))
+            self.controller.after(0, lambda: self.controller.show_error(
+                title="Login Failed",
+                message="Incorrect phone or password.",
+                return_frame=LoginPage
+            )
+        )                          
+            
             return
 
         # Save token globally on controller
         self.controller.token = token
-
-        # Move to program page
-        self.controller.after(0, lambda: self.controller.show_frame(ProgramPage))
-
+        self.controller.after(
+            0,
+                lambda: self.controller.show_frame(ProgramPage)
+        )
 
     def show_change_wifi_button(self):
         pass
@@ -521,6 +538,54 @@ class LoginPage(ttk.Frame):
         if self.keyboard:
             self.keyboard.destroy()
             self.keyboard = None
+            
+class ErrorPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        lm = controller.lm
+
+        self.configure(style="Danger.TFrame")  # red background
+
+        container = ttk.Frame(self, padding=lm.scaled(30))
+        container.pack(expand=True)
+
+        self.title_label = ttk.Label(
+            container,
+            text="",
+            font=lm.font(18),
+            foreground="white"
+        )
+        self.title_label.pack(pady=(0, lm.scaled(10)))
+
+        self.message_label = ttk.Label(
+            container,
+            text="",
+            font=lm.font(12),
+            foreground="white",
+            wraplength=lm.scaled(400),
+            justify="center"
+        )
+        self.message_label.pack(pady=(0, lm.scaled(20)))
+
+        ttk.Button(
+            container,
+            text="Back",
+            bootstyle=SECONDARY,
+            padding=lm.scaled(12),
+            command=self.go_back
+        ).pack()
+
+        self.return_frame = None
+
+    def set_error(self, title, message, return_frame):
+        self.title_label.config(text=title)
+        self.message_label.config(text=message)
+        self.return_frame = return_frame
+
+    def go_back(self):
+        self.controller.show_frame(self.return_frame)
+
 
 
 # ------------ RUN ------------
