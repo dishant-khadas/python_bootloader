@@ -1,3 +1,12 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
 venv/
-_pycache_/
-requirements.txt
+
+# Env files
+.env
