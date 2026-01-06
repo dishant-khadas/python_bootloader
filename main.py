@@ -75,7 +75,7 @@ class App(ttk.Window):
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
-        for Page in (ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, FileSelectionPage, ErrorPage):
+        for Page in (ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, FileSelectionPage, DownloadPage, ErrorPage):
            frame = Page(parent=self.container, controller=self)
            frame.place(relwidth=1, relheight=1)
            self.frames[Page] = frame
@@ -402,30 +402,90 @@ class ProgramPage(ttk.Frame):
         print("ERROR:", msg)
         messagebox.showerror("Error", msg)
 
-    # inside ProgramPage class - on file selected & Download button pressed
-    def on_download_and_flash(self, selected_file_id):
+
+class DownloadPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        lm = controller.lm
+
+        self.file_id = None
+
+        # Center Container
+        container = ttk.Frame(self)
+        container.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Title
+        ttk.Label(container, text="Please Wait...", font=lm.font(20), foreground="white").pack(pady=lm.scaled(30))
+
+        # Spinner (using a label as placeholder or maybe infinite progressbar)
+        self.progress = ttk.Progressbar(container, mode='indeterminate', bootstyle=INFO, length=lm.scaled(300))
+        self.progress.pack(pady=lm.scaled(20))
+        self.progress.start(10)
+
+        # Status Label
+        self.status_label = ttk.Label(container, text="Initializing...", font=lm.font(14), foreground="yellow", wraplength=lm.scaled(400), justify="center")
+        self.status_label.pack(pady=lm.scaled(20))
+
+    def on_show(self):
+        # Reset UI
+        self.status_label.config(text="Starting download...")
+        self.progress.start(10)
+        
+        # Start download if file_id is set
+        if hasattr(self, 'file_id') and self.file_id:
+             threading.Thread(target=self.start_download_logic, args=(self.file_id,), daemon=True).start()
+
+    def start_download(self, file_id):
+        self.file_id = file_id
+        # on_show will be called by show_frame, or we can just start here if we manually called show_frame first
+        # But let's rely on on_show for cleaner lifecycle if possible, or just call logic
+        # self.start_download_logic(file_id) # Waiting for on_show is better if show_frame calls it
+
+    def start_download_logic(self, file_id):
         token = self.controller.token
-        device_id = os.getenv("DEVICE_ID", "UNKNOWN")
-        is_encryption = self.controller.is_encryption_enable if hasattr(self.controller, "is_encryption_enable") else False
+        # device_id logic if needed
+        device_id = "41999990" # Hardcoded or from env
 
-        def ui_msg(s): 
-            print("STATUS:", s)
-            # update a label in GUI via after if needed
-            self.controller.after(0, lambda: self.status_label.config(text=s))
+        is_enc = getattr(self.controller, "is_encryption_enable", False)
 
-        def ui_success(data):
-            print("SUCCESS:", data)
-            self.controller.after(0, lambda: messagebox.showinfo("Success", "Flashed successfully"))
+        def on_msg(text):
+            self.controller.after(0, lambda: self.status_label.config(text=text))
+        
+        def on_success(res):
+            self.controller.after(0, lambda: self.download_success(res))
 
-        def ui_error(err):
-            print("ERROR:", err)
-            self.controller.after(0, lambda: messagebox.showerror("Error", err))
+        def on_err(err_text):
+            self.controller.after(0, lambda: self.download_error(err_text))
 
-        threading.Thread(
-            target=download_and_flash,
-            args=(selected_file_id, token, device_id, is_encryption, ui_msg, ui_success, ui_error),
-            daemon=True
-        ).start()
+        download_and_flash(
+            file_id=file_id,
+            token=token,
+            device_id=device_id,
+            is_encryption_enable=is_enc,
+            callback_message=on_msg,
+            callback_success=on_success,
+            callback_error=on_err
+        )
+
+    def download_success(self, res):
+        self.progress.stop()
+        self.status_label.config(text="Download & Flash Complete!", foreground="green")
+        # Logic to go somewhere else? Or stay here? 
+        # User didn't specify success page, maybe go back to file selection or program page?
+        # For now, stay here with success message or maybe go to ProgramPage to restart.
+        messagebox.showinfo("Success", "Firmware updated successfully!")
+        self.controller.show_frame(ProgramPage)
+
+    def download_error(self, err_text):
+        self.progress.stop()
+        self.status_label.config(text="Error occurred", foreground="red")
+        # Redirect to ErrorPage, which usually goes BACK. 
+        # User requested: "redirect to login page" from error page
+        self.controller.show_error("Download Failed", err_text, return_frame=LoginPage)
+
+
+
 
 class FileSelectionPage(ttk.Frame):
     def __init__(self, parent, controller):
@@ -517,15 +577,10 @@ class FileSelectionPage(ttk.Frame):
             if idx < len(file_ids):
                 file_id = file_ids[idx]
                 # Trigger the download logic in ProgramPage
-                program_page = self.controller.frames[ProgramPage]
-                # Switch to ProgramPage to see status/logs or start download directly
-                # For now, let's trigger it directly.
-                # If you want to show a spinner/log, you might want to show ProgramPage 
-                # or a new "FlashProgressPage".
-                # The user request implies clicking next triggers the server call.
-                program_page.on_download_and_flash(file_id)
-                # Optionally switch back to ProgramPage to see status updates if log is there
-                self.controller.show_frame(ProgramPage)
+                # Trigger the download logic via DownloadPage
+                download_page = self.controller.frames[DownloadPage]
+                download_page.file_id = file_id
+                self.controller.show_frame(DownloadPage)
 
 
 

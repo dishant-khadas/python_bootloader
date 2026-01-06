@@ -50,7 +50,6 @@ def download_and_flash(file_id: str,
     """
 
     try:
-        callback_message("Opening serial port...")
         # Raise BL detect HIGH at start (mimic Node behaviour where they set LOW earlier but here low is used after download)
         try:
             turn_BL_Detect_High()
@@ -58,7 +57,7 @@ def download_and_flash(file_id: str,
             callback_message(f"Warning: BL detect high failed: {e}")
 
         # 1) Download the file
-        callback_message(f"Requesting file {file_id} from server...")
+        callback_message(f"Requesting file from server...")
         server_url = os.getenv("SERVER_URL")
         if not server_url:
             callback_error("SERVER_URL not set")
@@ -69,7 +68,7 @@ def download_and_flash(file_id: str,
 
         resp = requests.get(download_url, headers=headers, timeout=30)
         if resp.status_code != 200:
-            callback_error(f"Failed to fetch file: HTTP {resp.status_code}")
+            callback_error(f"Failed to Download File")
             return False
 
         # response content is bytes
@@ -83,21 +82,19 @@ def download_and_flash(file_id: str,
         print("original hash : ", original_hash)
         print("encrypted hash: ", encrypted_hash)
 
-        callback_message(f"Received {len(file_bytes)} bytes. Validating headers...")
-
         if not original_hash or not encrypted_hash or not encrypted_key_hdr:
             callback_error("Missing required headers from server")
             return False
 
         # 2) Validate encrypted file hash
-        callback_message("Checking encrypted file hash...")
+        callback_message("Checking file ....")
         calculated_encrypted_hash = sha256_hex_of_bytes(file_bytes)
         print("Calculated encrypted hash:", calculated_encrypted_hash)
         if calculated_encrypted_hash != encrypted_hash:
             callback_error("E23 - Encrypted File Mismatch")
             return False
 
-        callback_message("Encrypted file hash OK. Parsing encrypted key...")
+        callback_message("Please Wait...")
 
         # 3) Parse encrypted key (expected to be JSON array string whose first element is base64)
         try:
@@ -111,7 +108,7 @@ def download_and_flash(file_id: str,
             callback_error(f"Failed to parse encrypted key header: {e}")
             return False
 
-        callback_message("Decrypting data key via KMS...")
+        callback_message("Checking file ....")
         decrypted_key = decrypt_key_kms(buffer_key_bytes)
         if not decrypted_key:
             callback_error("Failed to decrypt data key via KMS")
@@ -138,7 +135,7 @@ def download_and_flash(file_id: str,
             callback_error("E24 - Original file Mismatch")
             return False
 
-        callback_message("Original file hash matches. Preparing final packet...")
+        callback_message(" Please Wait...")
 
         # 4) Prepare final hash packet (formatHashTo64Bytes)
         final_packet = format_hash_to_64_bytes(calc_orig_hash)
@@ -162,7 +159,6 @@ def download_and_flash(file_id: str,
             callback_message(f"Warning: BL detect low failed: {e}")
 
         # 6) Wait 4 seconds (node had a setTimeout 4000)
-        callback_message("Waiting 4 seconds before flashing...")
         time.sleep(4)
 
         # 7) Write final packet to serial port
@@ -171,7 +167,9 @@ def download_and_flash(file_id: str,
             port_name = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
             ser = serial.Serial(port_name, baudrate=115200, timeout=5)
         except Exception as e:
-            callback_error(f"Serial port open failed: {e}")
+            # callback_error(f"Serial port open failed: {e}")
+            callback_error("Failed to Send Data to Display")
+
             return False
 
         try:
