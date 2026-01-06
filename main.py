@@ -44,7 +44,28 @@ class App(ttk.Window):
         style = ttk.Style()
         default_btn_size = 12 # Base size for buttons
         style.configure('TButton', font=self.lm.font(default_btn_size))
+        
+        # Custom Combobox Style to remove blue focus ring and match dark theme
+        style.configure('Custom.TCombobox',
+                        fieldbackground='#2d2d2d',
+                        background='#2d2d2d',
+                        foreground='white',
+                        arrowcolor='white',
+                        bordercolor='#2d2d2d',
+                        darkcolor='#2d2d2d',
+                        lightcolor='#2d2d2d',
+                        borderwidth=0)
+        
+        style.map('Custom.TCombobox',
+                  fieldbackground=[('readonly', '#2d2d2d')],
+                  selectbackground=[('readonly', '#2d2d2d')],
+                  selectforeground=[('readonly', 'white')],
+                  bordercolor=[('focus', '#2d2d2d')],
+                  lightcolor=[('focus', '#2d2d2d')],
+                  darkcolor=[('focus', '#2d2d2d')])
 
+        # Global setting for Combobox Dropdown (Listbox) Font
+        self.option_add('*TCombobox*Listbox.font', self.lm.font(14))
 
         self.selected_ssid = None
         self.wifi_password = None
@@ -54,7 +75,7 @@ class App(ttk.Window):
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
-        for Page in (ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, ErrorPage):
+        for Page in (ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, FileSelectionPage, ErrorPage):
            frame = Page(parent=self.container, controller=self)
            frame.place(relwidth=1, relheight=1)
            self.frames[Page] = frame
@@ -69,7 +90,11 @@ class App(ttk.Window):
             self.show_frame(ScanPage)
 
     def show_frame(self, page):
-        self.frames[page].tkraise()
+        frame = self.frames[page]
+        frame.tkraise()
+        # Optionally call a method like on_show if it exists
+        if hasattr(frame, "on_show"):
+            frame.on_show()
         
     def show_error(self, title, message, return_frame):
         error_page = self.frames[ErrorPage]
@@ -141,7 +166,7 @@ class WifiListPage(ttk.Frame):
             padding=lm.scaled(15), 
             bootstyle=SUCCESS,
             command=self.go_next
-        ).pack(pady=lm.scaled(25))
+        ).pack(pady=lm.scaled(40))
 
     def load_list(self, ssids):
         self.listbox.delete(0, tk.END)
@@ -338,42 +363,44 @@ class ProgramPage(ttk.Frame):
             bootstyle=PRIMARY,
             padding=lm.scaled(30),
             command=self.start_program_logic
-        ).pack(pady=lm.scaled(100))
+        ).pack(pady=lm.scaled(50))
+
+        self.status_label = ttk.Label(self, text="", font=lm.font(14), foreground="yellow")
+        self.status_label.pack(pady=lm.scaled(20))
 
     def start_program_logic(self):
-        print("Turning pins HIGH, LED ON, Display ON")
-        turn_BL_Detect_High()
-        turn_display_On()
+        print("Starting Program Logic - Fetching from Server")
+        
+        # Hardcoded for testing as requested
+        du_number = 99000000
+        display_number = 12000000
 
-        from du_reader import read_du_from_serial
+        from du_api import fetch_du_list
 
-        def ui_message(msg):
-            print("STATUS:", msg)
+        def run_fetch():
+            token = self.controller.token
+            success, result, is_enc = fetch_du_list(token, du_number, display_number)
+            
+            if success:
+                self.controller.after(0, lambda: self.ui_success(result, is_enc))
+            else:
+                self.controller.after(0, lambda: self.ui_error(result))
 
-        def ui_success(data):
-            print("SUCCESS — DU List:", data)
-            messagebox.showinfo("DU Loaded", "DU Data Received")
-            # Save DU response for next page (file list)
-            self.controller.du_options = data["options"]
-            self.controller.is_encryption_enable = data["isEncryptionEnable"]
-            # TODO: Navigate to File Selection Page
+        threading.Thread(target=run_fetch, daemon=True).start()
 
-        def ui_error(msg):
-            print("ERROR:", msg)
-            messagebox.showerror("Error", msg)
+    def ui_success(self, options, is_enc):
+        print("SUCCESS — DU List:", options)
+        # MessageBox removed for better UX
+        # Save DU response for next page (file list)
+        self.controller.du_options = options
+        self.controller.is_encryption_enable = is_enc
+        self.controller.du_options = options
+        self.controller.is_encryption_enable = is_enc
+        self.controller.show_frame(FileSelectionPage)
 
-        threading.Thread(
-            target=read_du_from_serial,
-            args=(
-                self.controller.token,  # auth token
-                ui_message,
-                ui_success,
-                ui_error,
-                os.getenv("SERIAL_PORT", "/dev/ttyAMA0"),   # UART Port
-                115200
-            ),
-            daemon=True
-        ).start()
+    def ui_error(self, msg):
+        print("ERROR:", msg)
+        messagebox.showerror("Error", msg)
 
     # inside ProgramPage class - on file selected & Download button pressed
     def on_download_and_flash(self, selected_file_id):
@@ -399,6 +426,106 @@ class ProgramPage(ttk.Frame):
             args=(selected_file_id, token, device_id, is_encryption, ui_msg, ui_success, ui_error),
             daemon=True
         ).start()
+
+class FileSelectionPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        lm = self.controller.lm
+
+        # Center Container
+        container = ttk.Frame(self)
+        container.place(relx=0.5, rely=0.4, anchor="center")
+
+        # Title
+        ttk.Label(container, text="Select Firmware", font=lm.font(24), foreground="white").pack(pady=lm.scaled(30))
+
+        # DU Info Frame
+        info_frame = ttk.Frame(container)
+        info_frame.pack(fill="x", pady=lm.scaled(20))
+
+        self.du_label = ttk.Label(info_frame, text="DU: --", font=lm.font(16), foreground="#00d4aa")
+        self.du_label.pack(anchor="center", pady=lm.scaled(5))
+        
+        self.disp_label = ttk.Label(info_frame, text="Display: --", font=lm.font(16), foreground="#00d4aa")
+        self.disp_label.pack(anchor="center", pady=lm.scaled(5))
+
+        # Files Dropdown
+        # ttk.Label(container, text="Available Files:", font=lm.font(14)).pack(pady=(lm.scaled(30), lm.scaled(10)))
+
+        self.file_var = tk.StringVar()
+        self.combobox = ttk.Combobox(
+            container, 
+            textvariable=self.file_var,
+            font=lm.font(14),
+            state="readonly",
+            width=30,
+            style="Custom.TCombobox"
+        )
+        self.combobox.pack(pady=lm.scaled(10), ipady=lm.scaled(5))
+
+        # Next Button
+        ttk.Button(
+            container,
+            text="Next",
+            bootstyle=SUCCESS,
+            padding=lm.scaled(15),
+            command=self.on_next
+        ).pack(pady=lm.scaled(40))
+
+    def on_show(self):
+        # Update DU info
+        options = getattr(self.controller, "du_options", {})
+        du_num = options.get("duNumber", "Unknown")
+        disp_num = options.get("displayNumber", "Unknown")
+        
+        self.du_label.config(text=f"DU: {du_num}")
+        self.disp_label.config(text=f"Display: {disp_num}")
+
+        # Update Combobox
+        files = options.get("fileName", [])
+        if not files:
+            self.combobox['values'] = ["No files available"]
+            self.combobox.set("No files available")
+            self.combobox.state(["disabled"])
+        else:
+            self.combobox['values'] = files
+            self.combobox.state(["!disabled"])
+            self.combobox.set("Select File")
+
+    def on_next(self):
+        selected_file = self.file_var.get()
+        if not selected_file or selected_file == "No files available" or selected_file == "Select File":
+            messagebox.showwarning("Selection", "Please select a valid file.")
+            return
+
+        print(f"Next Clicked. Selected: {selected_file}")
+        
+        # Get corresponding fileId if needed
+        options = getattr(self.controller, "du_options", {})
+        file_names = options.get("fileName", [])
+        file_ids = options.get("fileId", [])
+        
+        if selected_file in file_names:
+            idx = file_names.index(selected_file)
+            print("---------------- DEBUG SELECTION ----------------")
+            print(f"Selected File: '{selected_file}'")
+            print(f"Index found: {idx}")
+            print(f"File Names List: {file_names}")
+            print(f"File IDs List: {file_ids}")
+            
+            if idx < len(file_ids):
+                file_id = file_ids[idx]
+                # Trigger the download logic in ProgramPage
+                program_page = self.controller.frames[ProgramPage]
+                # Switch to ProgramPage to see status/logs or start download directly
+                # For now, let's trigger it directly.
+                # If you want to show a spinner/log, you might want to show ProgramPage 
+                # or a new "FlashProgressPage".
+                # The user request implies clicking next triggers the server call.
+                program_page.on_download_and_flash(file_id)
+                # Optionally switch back to ProgramPage to see status updates if log is there
+                self.controller.show_frame(ProgramPage)
 
 
 

@@ -10,3 +10,7 @@ venv/
 
 # Env files
 .env
+
+# bin files
+temp_Encrypted.bin
+temp_Original.bin

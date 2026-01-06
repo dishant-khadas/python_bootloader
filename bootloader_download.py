@@ -24,14 +24,17 @@ def sha256_hex_of_bytes(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 # --------- placeholder encrypt function (if you port Encrypt from JS) ----------
+from decrypt_utils import encrypt_hex_block
+
+# --------- placeholder encrypt function (if you port Encrypt from JS) ----------
 def encrypt_final_packet(final_packet_bytes: bytes) -> bytes:
     """
-    Placeholder. If you implement the JS Encrypt() function in Python,
-    replace this so it returns encrypted bytes (hex or raw bytes depending on expectation).
-    For now, returns the same bytes (no encryption) — change when you have Encrypt.
+    Encrypts the final 64-byte packet (if encryption enabled).
+    Converts bytes -> hex -> encrypt_hex_block -> hex string -> bytes.
     """
-    # TODO: implement if required. For now: no-op
-    return final_packet_bytes
+    hex_str = final_packet_bytes.hex()
+    encrypted_hex = encrypt_hex_block(hex_str)
+    return bytes.fromhex(encrypted_hex)
 
 # --------- main function ----------
 def download_and_flash(file_id: str,
@@ -77,6 +80,9 @@ def download_and_flash(file_id: str,
         encrypted_hash = resp.headers.get("x-encrypted-file-hash") or resp.headers.get("X-Encrypted-File-Hash")
         encrypted_key_hdr = resp.headers.get("x-encrypted-key") or resp.headers.get("X-Encrypted-Key")
 
+        print("original hash : ", original_hash)
+        print("encrypted hash: ", encrypted_hash)
+
         callback_message(f"Received {len(file_bytes)} bytes. Validating headers...")
 
         if not original_hash or not encrypted_hash or not encrypted_key_hdr:
@@ -86,6 +92,7 @@ def download_and_flash(file_id: str,
         # 2) Validate encrypted file hash
         callback_message("Checking encrypted file hash...")
         calculated_encrypted_hash = sha256_hex_of_bytes(file_bytes)
+        print("Calculated encrypted hash:", calculated_encrypted_hash)
         if calculated_encrypted_hash != encrypted_hash:
             callback_error("E23 - Encrypted File Mismatch")
             return False
@@ -125,6 +132,8 @@ def download_and_flash(file_id: str,
         callback_message("Decrypted file. Verifying original hash...")
 
         calc_orig_hash = sha256_hex_of_bytes(decrypted_bytes)
+        print("Calculated original hash:", calc_orig_hash)
+        print("Expected original hash:", original_hash)
         if calc_orig_hash != original_hash:
             callback_error("E24 - Original file Mismatch")
             return False

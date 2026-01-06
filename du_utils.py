@@ -2,6 +2,7 @@
 import subprocess
 import hashlib
 from Crypto.Cipher import AES
+from Crypto.Util.Padding import unpad
 import binascii
 import boto3
 import requests
@@ -86,7 +87,15 @@ def decrypt_file(hex_data: str, key: bytes) -> bytes:
     decrypted = cipher.decrypt(encrypted_bytes)
 
     # In Node they used Buffer.concat(decipher.update(...), decipher.final()) - PyCryptodome decrypt gives complete bytes.
-    return decrypted
+    # Try unpadding. If it fails (some custom encryption?), return raw. 
+    # Usually standard AES-256-ECB/CBC implies PKCS7 padding.
+    try:
+        return unpad(decrypted, AES.block_size)
+    except ValueError:
+        # If padding is incorrect or not used, return raw (mimics no unpad, though usually error)
+        # But for files that match exact blocks, unpad might fail if it treats last bytes as padding
+        # Let's hope it's standard PKCS7.
+        return decrypted
 
 
 # ---------------------------
