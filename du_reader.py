@@ -125,14 +125,17 @@ def read_du_from_serial(
         
         # User provided dummy data:
         # Note: I am stripping whitespace and newlines from the user input.
-        dummy_data = """
-        2a05e69ec000b71b00a37f196c552e9ad401f83bc2776e449d0abe88104f2ca96b31f1d760938e251172c8549f0de36ab1485e22917dc30fa86f33e918742a5b9cd140668bf02da47c135a99ce08e76d3491bf520a7ed81fc645882b9e03a1746fd05cb8197de462900fa53ec18a4d17736b2e98d5f9401ca7568e03c972bf2a649de1305f88a417c67b0d539e41f26ab70cd82599e5134a7f902b6dc158a8f403729c1e6fd5b08842a17d9f306ce4125b780ad194f8235e6ac70db94177a3189e642c0f5588d24b7f139ca0e65a318d026fb1c4990e5772da18f03e85647c2ba9d6419f08e36d1574c8539a0fb24e7a1d90e8665f2ca13899c70b5e742a8df46119b09c536ed1a840720f2bc95d7a1388e460f19e34a7c25b0d6f941872a9e3418f607c1d53b899e42f0a6b459c31d7a180f25e1874c63b9f0da852e16f2590487a1cd4b35f88e9026da59c40721bf0e634887f5a13c299d80e614ba1f52d789e406c1fb70a558ed12374c960a45b9f186a2cd741e8905e13b1779df034a8621c7be450990d5f742a6ec19813a74bf890325d7c1ea46f8819c3532d749f60a138e70b667ad841905e2bc9f418739c0da56f34e188521ab7609f2c4578d40ea1536bc8991d72f03e5f842a9ed741608815c374a90f6d2be19c507a34b81f8853c72d996fa40e1874e5905b13c8417f2a9ed1660fb3749c2da85e18f4603c0e6b
-        """
+        # dummy_data = """
+        # 2a05e69ec000b71b00a37f196c552e9ad401f83bc2776e449d0abe88104f2ca96b31f1d760938e251172c8549f0de36ab1485e22917dc30fa86f33e918742a5b9cd140668bf02da47c135a99ce08e76d3491bf520a7ed81fc645882b9e03a1746fd05cb8197de462900fa53ec18a4d17736b2e98d5f9401ca7568e03c972bf2a649de1305f88a417c67b0d539e41f26ab70cd82599e5134a7f902b6dc158a8f403729c1e6fd5b08842a17d9f306ce4125b780ad194f8235e6ac70db94177a3189e642c0f5588d24b7f139ca0e65a318d026fb1c4990e5772da18f03e85647c2ba9d6419f08e36d1574c8539a0fb24e7a1d90e8665f2ca13899c70b5e742a8df46119b09c536ed1a840720f2bc95d7a1388e460f19e34a7c25b0d6f941872a9e3418f607c1d53b899e42f0a6b459c31d7a180f25e1874c63b9f0da852e16f2590487a1cd4b35f88e9026da59c40721bf0e634887f5a13c299d80e614ba1f52d789e406c1fb70a558ed12374c960a45b9f186a2cd741e8905e13b1779df034a8621c7be450990d5f742a6ec19813a74bf890325d7c1ea46f8819c3532d749f60a138e70b667ad841905e2bc9f418739c0da56f34e188521ab7609f2c4578d40ea1536bc8991d72f03e5f842a9ed741608815c374a90f6d2be19c507a34b81f8853c72d996fa40e1874e5905b13c8417f2a9ed1660fb3749c2da85e18f4603c0e6b
+        # """
+        dummy_data = """e4a54694cc98744a6e097e87840548c08b8b21d854704da83b3cfc4f726f48871d1f6b3e203874c0a020c7b3efcbcce69469e9a1cff36384b90d6a88e1ad9cd91d3b9698c9586dcf52124dca533f37eb91bb4bbe9cba087aae9223d70a4ce3f408ebef9a8d2d643936ee461bec6fd0abaf1bb8e1d527c3982dab90daffb435d0d36d83c579893d08ead524de3aed56dc297c21b6a59b818ba8b0a122f21b8d7c8b870d3dca6ae7a5fae4719683f4d0dd47ec32583b7988ceeed5ccadfe0e4f9d663e7e1b88aa9c7ca9a425afa7e5199f43e6bbd923c4c80f9e81fe2e53d6d32ead4d0b76db2f46b7cd07a10a9294cd03adb45bb4bc8386df4b7610ad1e8d9ad46022bf955a9d21a87d260494db9a15e927300818af66986766ad3526ffd6aee33e2e1b8dfe88a3502cf7f83673a6d5f18cb4726da1f329aa9d0ad9cbb5927aa83defeeaf08efc29b98a6ba1ddf868cfaf1ac087a12e0cb36cb8851f85dc3e117c4d5e68b9c38f0d613026a74969b72ee110d630d3cddbac2bad2c90938ea7265249e7badea4a51855e88bb2e6d20effa53cff993ac78ad16aba45098f2e52b95ebde367b1b007545340c31924673a07f4032eee9433a7398f0de4e6c8110eb3c19fbc86c4ecbca7ae4bc55b9b3b5f273002eb80055142517b40db33eb2106da08c237bf3f27588004154305a295dc0c24c01a280b67ba07893ccf19dc214c446"""
         
         # Clean up: remove spaces and newlines
         received_hex = dummy_data.replace(" ", "").replace("\n", "").lower()
         
         callback_ui_message(f"Dummy data loaded (len: {len(received_hex)})")
+
+        
         
         # Simulate the 'REQUIRED_HEX_LENGTH' check implicitly, we know it's > 1024 char probably
         # but let's just proceed to the processing logic which is loop based
@@ -189,6 +192,7 @@ def read_du_from_serial(
             if SOP == "2a" and EOP == "3c":
                 # unencrypted; check CRC
                 # debug log
+                print("without encryption")
                 callback_ui_message("SOP/EOP matched (unencrypted). Checking CRC...")
                 
                 crc_calc = calculate_crc16(buffer_bytes[:510])  # int
@@ -211,6 +215,7 @@ def read_du_from_serial(
 
             elif SOP != "2a" and EOP != "3c":
                 # encrypted
+                print("with encryption")
                 callback_ui_message("Encrypted data detected (SOP/EOP mismatch)...")
                 try:
                     # Decrypt receives hex string
