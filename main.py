@@ -6,6 +6,7 @@ from t9_keypad import T9Keypad
 from tkinter import messagebox
 from ui_utils import LayoutManager
 import os
+from PIL import Image, ImageTk
 
 from gpio_control import (
     turn_BL_Detect_High,
@@ -75,19 +76,14 @@ class App(ttk.Window):
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
-        for Page in (ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, FileSelectionPage, DownloadPage, ErrorPage):
+        for Page in (SplashScreen, ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, FileSelectionPage, DownloadPage, ErrorPage):
            frame = Page(parent=self.container, controller=self)
            frame.place(relwidth=1, relheight=1)
            self.frames[Page] = frame
 
 
-        # ---- Auto-detect WiFi ----
-        ssid = get_connected_ssid()
-        if ssid:
-            self.frames[LoginPage].show_change_wifi_button()
-            self.show_frame(LoginPage)
-        else:
-            self.show_frame(ScanPage)
+        # Show splash screen first
+        self.show_frame(SplashScreen)
 
     def show_frame(self, page):
         frame = self.frames[page]
@@ -101,6 +97,81 @@ class App(ttk.Window):
         error_page.set_error(title, message, return_frame)
         self.show_frame(ErrorPage)
 
+
+
+
+# ------------ SPLASH SCREEN ------------
+class SplashScreen(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        lm = self.controller.lm
+        
+        # Set background to white
+        self.configure(style='TFrame')
+        
+        # Center container
+        container = ttk.Frame(self)
+        container.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Load and display logo
+        try:
+            # Load the PNG image
+            logo_path = os.path.join(os.path.dirname(__file__), "czar.png")
+            self.original_image = Image.open(logo_path)
+            
+            # Resize to fit nicely on screen
+            max_size = (lm.scaled(300), lm.scaled(300))
+            self.original_image.thumbnail(max_size, Image.Resampling.LANCZOS)
+            
+            # Create PhotoImage
+            self.photo = ImageTk.PhotoImage(self.original_image)
+            
+            # Display image
+            self.logo_label = ttk.Label(container, image=self.photo)
+            # s
+            self.logo_label.pack()
+            ttk.Label(container, text="Please Wait...",font=lm.font(18)).pack(pady=lm.scaled(24))  # Spacer
+
+            
+        except Exception as e:
+            # Fallback if image can't be loaded
+            ttk.Label(container, text="CZAR", font=lm.font(48)).pack()
+            print(f"Error loading splash image: {e}")
+        
+        # Animation state
+        self.alpha = 0.0
+        self.animation_running = False
+    
+    def on_show(self):
+        """Called when the splash screen is shown"""
+        if not self.animation_running:
+            self.animation_running = True
+            self.alpha = 0.0
+            self.animate_fade_in()
+    
+    def animate_fade_in(self):
+        """Fade in animation"""
+        if self.alpha < 1.0:
+            self.alpha += 0.05  # Increment alpha
+            # Note: tkinter doesn't support alpha transparency directly on widgets
+            # So we'll just use a delay and then transition
+            self.after(30, self.animate_fade_in)
+        else:
+            # Animation complete, wait a bit then transition
+            self.after(1000, self.transition_to_next_page)
+    
+    def transition_to_next_page(self):
+        """Transition to the appropriate next page"""
+        self.animation_running = False
+        
+        # Auto-detect WiFi and go to appropriate page
+        ssid = get_connected_ssid()
+        if ssid:
+            self.controller.frames[LoginPage].show_change_wifi_button()
+            self.controller.show_frame(LoginPage)
+        else:
+            self.controller.show_frame(ScanPage)
 
 
 # ------------ PAGE 1: Scan WiFi ------------
