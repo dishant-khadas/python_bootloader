@@ -28,7 +28,7 @@ import time
 # ------------ MAIN APP ------------
 class App(ttk.Window):
     def __init__(self):
-        super().__init__(themename="darkly")
+        super().__init__(themename="litera")
         self.title("Setup Wizard")
         # self.attributes("-fullscreen", True)
 
@@ -47,22 +47,22 @@ class App(ttk.Window):
         
         # Custom Combobox Style to remove blue focus ring and match dark theme
         style.configure('Custom.TCombobox',
-                        fieldbackground='#2d2d2d',
-                        background='#2d2d2d',
-                        foreground='white',
-                        arrowcolor='white',
-                        bordercolor='#2d2d2d',
-                        darkcolor='#2d2d2d',
-                        lightcolor='#2d2d2d',
-                        borderwidth=0)
+                        fieldbackground='#ffffff',
+                        background='#ffffff',
+                        foreground='black',
+                        arrowcolor='black',
+                        bordercolor='#cccccc',
+                        darkcolor='#f0f0f0',
+                        lightcolor='#ffffff',
+                        borderwidth=1)
         
         style.map('Custom.TCombobox',
-                  fieldbackground=[('readonly', '#2d2d2d')],
-                  selectbackground=[('readonly', '#2d2d2d')],
-                  selectforeground=[('readonly', 'white')],
-                  bordercolor=[('focus', '#2d2d2d')],
-                  lightcolor=[('focus', '#2d2d2d')],
-                  darkcolor=[('focus', '#2d2d2d')])
+                  fieldbackground=[('readonly', '#ffffff')],
+                  selectbackground=[('readonly', '#ffffff')],
+                  selectforeground=[('readonly', 'black')],
+                  bordercolor=[('focus', '#cccccc')],
+                  lightcolor=[('focus', '#cccccc')],
+                  darkcolor=[('focus', '#cccccc')])
 
         # Global setting for Combobox Dropdown (Listbox) Font
         self.option_add('*TCombobox*Listbox.font', self.lm.font(14))
@@ -115,7 +115,7 @@ class ScanPage(ttk.Frame):
         container = ttk.Frame(self)
         container.place(relx=0.5, rely=0.5, anchor="center")
 
-        ttk.Label(container, text="Connect to Wi-Fi", font=lm.font(24), foreground="white").pack(pady=lm.scaled(30))
+        ttk.Label(container, text="Connect to Wi-Fi", font=lm.font(24)).pack(pady=lm.scaled(30))
         ttk.Button(container, text="Scan Wi-Fi", padding=lm.scaled(20), bootstyle=PRIMARY,
                    command=self.start_scan).pack(pady=lm.scaled(120))
 
@@ -139,20 +139,20 @@ class WifiListPage(ttk.Frame):
         lm = self.controller.lm
 
         # Title with better spacing
-        ttk.Label(self, text="Available Networks", font=lm.font(24), foreground="white").pack(pady=lm.scaled(20))
+        ttk.Label(self, text="Available Networks", font=lm.font(24)).pack(pady=lm.scaled(20))
         
         # Listbox with better styling
         self.listbox = tk.Listbox(
             self, 
             font=lm.font(16), 
             height=8,  # Show 8 networks at once
-            bg="#2d2d2d",  # Dark background
-            fg="white",  # White text
-            selectbackground="#00d4aa",  # Teal selection (matching ttkbootstrap success)
+            bg="white",  # White background
+            fg="black",  # Black text
+            selectbackground="#00d4aa",  # Teal selection
             selectforeground="white",
             highlightthickness=2,
             highlightcolor="#00d4aa",
-            highlightbackground="#444444",
+            highlightbackground="#cccccc",
             relief="flat",
             borderwidth=0,
             activestyle="none"
@@ -210,7 +210,7 @@ class WifiPasswordPage(ttk.Frame):
         ttk.Label(self, text="Enter Wi-Fi Password", font=lm.font(20)).pack(pady=lm.scaled(15))
 
         # Password Label
-        ttk.Label(self, text="Password", font=lm.font(12), foreground="white").pack(pady=(lm.scaled(10), lm.scaled(3)))
+        ttk.Label(self, text="Password", font=lm.font(12)).pack(pady=(lm.scaled(10), lm.scaled(3)))
 
         # Password field frame
         pw_field_frame = ttk.Frame(self)
@@ -365,7 +365,7 @@ class ProgramPage(ttk.Frame):
             command=self.start_program_logic
         ).pack(pady=lm.scaled(50))
 
-        self.status_label = ttk.Label(self, text="", font=lm.font(14), foreground="yellow")
+        self.status_label = ttk.Label(self, text="", font=lm.font(14), bootstyle=WARNING)
         self.status_label.pack(pady=lm.scaled(20))
 
     def start_program_logic(self):
@@ -439,7 +439,7 @@ class DownloadPage(ttk.Frame):
         container.place(relx=0.5, rely=0.5, anchor="center")
 
         # Title
-        ttk.Label(container, text="Please Wait...", font=lm.font(20), foreground="white").pack(pady=lm.scaled(30))
+        ttk.Label(container, text="Please Wait...", font=lm.font(20)).pack(pady=lm.scaled(30))
 
         # Spinner (using a label as placeholder or maybe infinite progressbar)
         self.progress = ttk.Progressbar(container, mode='indeterminate', bootstyle=INFO, length=lm.scaled(300))
@@ -447,7 +447,7 @@ class DownloadPage(ttk.Frame):
         self.progress.start(10)
 
         # Status Label
-        self.status_label = ttk.Label(container, text="Initializing...", font=lm.font(14), foreground="yellow", wraplength=lm.scaled(400), justify="center")
+        self.status_label = ttk.Label(container, text="Initializing...", font=lm.font(14), bootstyle=WARNING, wraplength=lm.scaled(400), justify="center")
         self.status_label.pack(pady=lm.scaled(20))
 
     def on_show(self):
@@ -524,7 +524,7 @@ class FileSelectionPage(ttk.Frame):
         container.place(relx=0.5, rely=0.4, anchor="center")
 
         # Title
-        ttk.Label(container, text="Select Firmware", font=lm.font(24), foreground="white").pack(pady=lm.scaled(30))
+        ttk.Label(container, text="Select Firmware", font=lm.font(24)).pack(pady=lm.scaled(30))
 
         # DU Info Frame
         info_frame = ttk.Frame(container)
@@ -624,14 +624,14 @@ class LoginPage(ttk.Frame):
         ttk.Label(self, text="Log In", font=lm.font(20)).pack(pady=lm.scaled(15))
 
         # ---- MOBILE LABEL ----
-        ttk.Label(self, text="Mobile Number", font=lm.font(12), foreground="white").pack(pady=(lm.scaled(10), lm.scaled(3)))
+        ttk.Label(self, text="Mobile Number", font=lm.font(12)).pack(pady=(lm.scaled(10), lm.scaled(3)))
 
         self.phone = ttk.Entry(self, font=lm.font(12))
         self.phone.pack(pady=(0, lm.scaled(10)), padx=lm.scaled(40), ipady=lm.scaled(6), fill="x")
         self.phone.bind("<FocusIn>", lambda e: self.open_keyboard(self.phone))
 
         # ---- PASSWORD LABEL ----
-        ttk.Label(self, text="Password", font=lm.font(12), foreground="white").pack(pady=(0, lm.scaled(3)))
+        ttk.Label(self, text="Password", font=lm.font(12)).pack(pady=(0, lm.scaled(3)))
 
         pw_frame = ttk.Frame(self)
         pw_frame.pack(pady=lm.scaled(10), padx=lm.scaled(40), fill="x")
@@ -762,7 +762,7 @@ class ErrorPage(ttk.Frame):
             container,
             text="",
             font=lm.font(18),
-            foreground="white"
+            foreground="#020202",
         )
         self.title_label.pack(pady=(0, lm.scaled(10)))
 
@@ -770,7 +770,7 @@ class ErrorPage(ttk.Frame):
             container,
             text="",
             font=lm.font(12),
-            foreground="white",
+            foreground="#020202",
             wraplength=lm.scaled(400),
             justify="center"
         )
