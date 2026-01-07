@@ -639,16 +639,27 @@ class LoginPage(ttk.Frame):
         # ---- PASSWORD LABEL ----
         ttk.Label(self, text="Password", font=lm.font(12)).pack(pady=(0, lm.scaled(3)))
 
-        pw_frame = ttk.Frame(self)
-        pw_frame.pack(pady=lm.scaled(10), padx=lm.scaled(40), fill="x")
+        # Password field container with padding
+        pw_container = ttk.Frame(self)
+        pw_container.pack(pady=lm.scaled(10), padx=lm.scaled(40), fill="x")
 
+        # Inner frame for the password field with relative positioning
+        pw_frame = ttk.Frame(pw_container)
+        pw_frame.pack(fill="x")
+
+        # Password entry with right padding to make room for the icon
         self.password = ttk.Entry(pw_frame, font=lm.font(12), show="*")
-        self.password.pack(side="left", fill="x", expand=True, ipady=lm.scaled(6))
+        self.password.pack(fill="x", ipady=lm.scaled(6))
+        # Add right padding to make room for the eye icon
+        self.password.configure(style='Password.TEntry')
 
-        ttk.Button(
-            pw_frame, text="👁", width=4, bootstyle=INFO,
+        # Eye icon button positioned on top of the entry field (right side)
+        self.eye_btn = ttk.Button(
+            pw_frame, text="👁", width=3, bootstyle=INFO,
             command=self.toggle_password
-        ).pack(side="left", padx=lm.scaled(8))
+        )
+        # Place the button on the right side of the entry
+        self.eye_btn.place(relx=1.0, rely=0.5, anchor="e", x=-lm.scaled(5))
 
         self.password.bind("<FocusIn>", lambda e: self.open_keyboard(self.password))
 
