@@ -3,12 +3,9 @@ import subprocess
 import hashlib
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
-import binascii
 import boto3
 import requests
-import os
-import json
-import time
+
 
 # ---------------------------
 # CRC16 (Modbus/IBM) function

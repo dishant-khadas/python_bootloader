@@ -8,12 +8,6 @@ from ui_utils import LayoutManager
 import os
 from PIL import Image, ImageTk
 
-from gpio_control import (
-    turn_BL_Detect_High,
-    turn_BL_Detect_Low,
-    turn_display_On,
-    turn_display_Off
-)
 
 from dotenv import load_dotenv
 load_dotenv()
