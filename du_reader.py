@@ -12,6 +12,8 @@ from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
 from dotenv import load_dotenv
 load_dotenv()
 
+from du_api import fetch_du_list
+
 # Configurable defaults
 DEFAULT_SERIAL_PORT = os.getenv("SERIAL_PORT", "/dev/ttyS3")
 DEFAULT_BAUDRATE = int(os.getenv("SERIAL_BAUD", "115200"))
@@ -30,35 +32,7 @@ def get_encryption_flag(fw1: int, fw2: int) -> bool:
         return False
 
 
-def parse_du_and_display_from_hex(first_block_hex: str):
-    """
-    first_block_hex: first 1024 hex chars (string) like JS receivedData.slice(0,1024)
-    JS used duStartIndex = 2, displayStartIndex = 10 (these are indices into the hex string).
-    This returns integers same as Node's Number("0x" + slice).
-    """
-    du_start = 2
-    display_start = 10
-    display_end = 18
 
-    # slice returns hex substrings — interpret as big-endian hex numbers like JS
-    du_hex = first_block_hex[du_start:display_start]      # 8 hex chars -> 4 bytes
-    display_hex = first_block_hex[display_start:display_end]  # next 8 hex chars
-
-    du_number = int(du_hex, 16)
-    display_number = int(display_hex, 16)
-    return du_number, display_number
-
-
-def parse_du_and_display_from_hex(hex_str: str):
-    """
-    EXACT JS BEHAVIOR:
-    duNumber     = Number("0x" + receivedData.slice(2, 10))
-    displayNumber= Number("0x" + receivedData.slice(10,18))
-    """
-    du_hex = hex_str[2:10]          # hex characters, not bytes
-    display_hex = hex_str[10:18]
-
-    return int(du_hex, 16), int(display_hex, 16)
 
 
 
@@ -100,110 +74,177 @@ def read_du_from_serial(
         except Exception as e:
             callback_ui_message(f"Warning: turn_BL_Detect_High failed: {e}")
 
-        callback_ui_message(f"Opening serial port {serial_port}...")
-        try:
-            ser = serial.Serial(serial_port, baudrate=baudrate, timeout=0.5)
-        except Exception as e:
-            callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
-            try:
-                turn_BL_Detect_Low()
-            except:
-                pass
-            return
+        # callback_ui_message(f"Opening serial port {serial_port}...")
+        # try:
+        #     ser = serial.Serial(serial_port, baudrate=baudrate, timeout=0.5)
+        # except Exception as e:
+        #     callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
+        #     try:
+        #         turn_BL_Detect_Low()
+        #     except:
+        #         pass
+        #     return
 
-        received_hex = ""
-        start_time = time.time()
-        is_encryption_enable = False
-        buffer_bytes = b""
+        # received_hex = ""
+        # start_time = time.time()
+        # is_encryption_enable = False
+        # buffer_bytes = b""
 
-        callback_ui_message("Waiting for DU...")
+        # callback_ui_message("Waiting for DU...")
 
-        while True:
+        # while True:
             # timeout if nothing arrives for HANDSHAKE_TIMEOUT seconds
-            if time.time() - start_time > HANDSHAKE_TIMEOUT and len(received_hex) == 0:
-                try:
-                    turn_BL_Detect_Low()
-                except:
-                    pass
-                ser.close()
-                callback_ui_error("E31 - No data received during Handshake")
-                return
+            # if time.time() - start_time > HANDSHAKE_TIMEOUT and len(received_hex) == 0:
+            #     try:
+            #         turn_BL_Detect_Low()
+            #     except:
+            #         pass
+            #     ser.close()
+            #     callback_ui_error("E31 - No data received during Handshake")
+            #     return
 
             # read any available bytes
-            try:
-                chunk = ser.read(256)  # read up to 256 bytes
-            except Exception as e:
-                try:
-                    turn_BL_Detect_Low()
-                except:
-                    pass
-                ser.close()
-                callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
-                return
+            # try:
+            #     chunk = ser.read(256)  # read up to 256 bytes
+            # except Exception as e:
+            #     try:
+            #         turn_BL_Detect_Low()
+            #     except:
+            #         pass
+            #     ser.close()
+            #     callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
+            #     return
 
-            if not chunk:
-                # no data right now, continue looping
-                continue
+            # if not chunk:
+            #     # no data right now, continue looping
+            #     continue
+        
+        # --- DUMMY DATA INJECTION START ---
+        callback_ui_message("Simulating serial data reception...")
+        time.sleep(1) # simulate delay
+        
+        # User provided dummy data:
+        # Note: I am stripping whitespace and newlines from the user input.
+        dummy_data = """
+        2a05e69ec000b71b00a37f196c552e9ad401f83bc2776e449d0abe88104f2ca96b31f1d760938e251172c8549f0de36ab1485e22917dc30fa86f33e918742a5b9cd140668bf02da47c135a99ce08e76d3491bf520a7ed81fc645882b9e03a1746fd05cb8197de462900fa53ec18a4d17736b2e98d5f9401ca7568e03c972bf2a649de1305f88a417c67b0d539e41f26ab70cd82599e5134a7f902b6dc158a8f403729c1e6fd5b08842a17d9f306ce4125b780ad194f8235e6ac70db94177a3189e642c0f5588d24b7f139ca0e65a318d026fb1c4990e5772da18f03e85647c2ba9d6419f08e36d1574c8539a0fb24e7a1d90e8665f2ca13899c70b5e742a8df46119b09c536ed1a840720f2bc95d7a1388e460f19e34a7c25b0d6f941872a9e3418f607c1d53b899e42f0a6b459c31d7a180f25e1874c63b9f0da852e16f2590487a1cd4b35f88e9026da59c40721bf0e634887f5a13c299d80e614ba1f52d789e406c1fb70a558ed12374c960a45b9f186a2cd741e8905e13b1779df034a8621c7be450990d5f742a6ec19813a74bf890325d7c1ea46f8819c3532d749f60a138e70b667ad841905e2bc9f418739c0da56f34e188521ab7609f2c4578d40ea1536bc8991d72f03e5f842a9ed741608815c374a90f6d2be19c507a34b81f8853c72d996fa40e1874e5905b13c8417f2a9ed1660fb3749c2da85e18f4603c0e6b
+        """
+        
+        # Clean up: remove spaces and newlines
+        received_hex = dummy_data.replace(" ", "").replace("\n", "").lower()
+        
+        callback_ui_message(f"Dummy data loaded (len: {len(received_hex)})")
+        
+        # Simulate the 'REQUIRED_HEX_LENGTH' check implicitly, we know it's > 1024 char probably
+        # but let's just proceed to the processing logic which is loop based
+        
+        # reset handshake timer (we got some data)
+        # start_time = time.time()
 
-            # reset handshake timer (we got some data)
-            start_time = time.time()
+        # append chunk as hex string (exactly like JS Buffer.toString('hex'))
+        # chunk_hex = chunk.hex()
+        # received_hex += chunk_hex
 
-            # append chunk as hex string (exactly like JS Buffer.toString('hex'))
-            chunk_hex = chunk.hex()
-            received_hex += chunk_hex
+        # debug update
+        # callback_ui_message(f"Received hex length: {len(received_hex)}")
 
-            # debug update
-            callback_ui_message(f"Received hex length: {len(received_hex)}")
-
-            # wait until we have at least 1024 hex chars (512 bytes)
-            if len(received_hex) < REQUIRED_HEX_LENGTH:
-                continue
+        # wait until we have at least 1024 hex chars (512 bytes)
+        # if len(received_hex) < REQUIRED_HEX_LENGTH:
+        #     continue
+        
+        # --- BYPASSING LOOP: JUST RUN ONCE ---
+        if True: # Indent simulated loop body
+        # --- DUMMY DATA INJECTION END ---
 
             # Work with the first 1024 hex chars (512 bytes) like JS
             first_block_hex = received_hex[:REQUIRED_HEX_LENGTH]
-            try:
-                buffer_bytes = bytes.fromhex(first_block_hex)
-            except Exception:
-                ser.close()
-                try:
-                    turn_BL_Detect_Low()
-                except:
-                    pass
-                callback_ui_error("Invalid hex data received")
-                return
+            # try:
+            buffer_bytes = bytes.fromhex(first_block_hex)
+            # except Exception:
+            #     ser.close()
+            #     try:
+            #         turn_BL_Detect_Low()
+            #     except:
+            #         pass
+            #     callback_ui_error("Invalid hex data received")
+            #     return
+
 
             # SOP / EOP (JS used bufferData[0] and bufferData[509])
             SOP = f"{buffer_bytes[0]:02x}"
             EOP = f"{buffer_bytes[509]:02x}"
+            print("buffer len : ", len(buffer_bytes))
+            print(f"SOP: {SOP}, EOP: {EOP}")
+            
 
             # firmware bytes
             firmware_v1 = buffer_bytes[393]
             firmware_v2 = buffer_bytes[394]
 
-            # Try unencrypted flow first
-            try:
-                if SOP == "2a" and EOP == "3c":
-                    # unencrypted; check CRC
-                    crc_calc = calculate_crc16(buffer_bytes[:510])  # int
-                    little_end = calculate_little_endian(crc_calc)
-                    crc_recv = buffer_bytes[510:512].hex()
-                    if little_end != crc_recv:
-                        # invalid CRC
-                        try:
-                            turn_BL_Detect_Low()
-                        except:
-                            pass
-                        ser.close()
-                        callback_ui_error("E52 - Invalid Data Received")
-                        return
-                    is_encryption_enable = get_encryption_flag_from_fw(firmware_v1, firmware_v2)
+            # Logic strictly mirroring JS:
+            # if ( SOP === "2a" && EOP === "3c" ) { ... }
+            # if(SOP != "2a" && EOP != "3c") { ... }
+            
+            validated = False
+
+            if SOP == "2a" and EOP == "3c":
+                # unencrypted; check CRC
+                # debug log
+                callback_ui_message("SOP/EOP matched (unencrypted). Checking CRC...")
+                
+                crc_calc = calculate_crc16(buffer_bytes[:510])  # int
+                little_end = calculate_little_endian(crc_calc)
+                crc_recv = buffer_bytes[510:512].hex()
+                
+                if little_end == crc_recv:
+                    is_encryption_enable = get_encryption_flag(firmware_v1, firmware_v2)
+                    validated = True
                 else:
-                    # encrypted: decrypt the 1024 hex block using AES-CBC (Decrypt)
-                    callback_ui_message("Encrypted data received, decrypting...")
+                    callback_ui_message(f"CRC Mismatch: Calc {little_end} vs Recv {crc_recv}")
+                    # JS sends error "E52-Invalid Data Received"
+                    # ser.close()
                     try:
-                        decrypted_hex = decrypt_hex_block(first_block_hex)
-                    except Exception as e:
-                        ser.close()
+                        turn_BL_Detect_Low()
+                    except:
+                        pass
+                    callback_ui_error("E52 - Invalid Data Received")
+                    return
+
+            elif SOP != "2a" and EOP != "3c":
+                # encrypted
+                callback_ui_message("Encrypted data detected (SOP/EOP mismatch)...")
+                try:
+                    # Decrypt receives hex string
+                    decrypted_hex = decrypt_hex_block(first_block_hex)
+                    # Convert to buffer
+                    buffer_bytes = bytes.fromhex(decrypted_hex)
+                    
+                    # Re-check SOP/EOP
+                    SOP = f"{buffer_bytes[0]:02x}"
+                    EOP = f"{buffer_bytes[509]:02x}"
+                    firmware_v1 = buffer_bytes[393]
+                    firmware_v2 = buffer_bytes[394]
+
+                    if SOP == "2a" and EOP == "3c":
+                        crc_calc = calculate_crc16(buffer_bytes[:510])
+                        little_end = calculate_little_endian(crc_calc)
+                        crc_recv = buffer_bytes[510:512].hex()
+                        
+                        if little_end == crc_recv:
+                            is_encryption_enable = get_encryption_flag(firmware_v1, firmware_v2)
+                            # Additional JS step: if (isEncryptionEnable) { ... set KEY_FOR_ENCRYPTION ... }
+                            # But here we just need to pass isEncryptionEnable to the flasher later.
+                            validated = True
+                        else:
+                             callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
+                             return
+                    else:
+                        # JS doesn't explicitly throw here in the inner block if SOP/EOP fail after decrypt?
+                        # Actually it does: if (SOP === "2a" && EOP === "3c") { ... } else { error }
+                        callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
+                        return
+
+                except Exception as e:
+                        # ser.close()
                         try:
                             turn_BL_Detect_Low()
                         except:
@@ -211,70 +252,59 @@ def read_du_from_serial(
                         callback_ui_error(f"E52 - Decrypt failed: {e}")
                         return
 
-                    # convert decrypted hex to bytes and re-evaluate SOP/EOP/CRC/firmware
-                    try:
-                        buffer_bytes = bytes.fromhex(decrypted_hex)
-                    except Exception as e:
-                        ser.close()
-                        try:
-                            turn_BL_Detect_Low()
-                        except:
-                            pass
-                        callback_ui_error("E52 - Decrypted data invalid hex")
-                        return
+            else:
+                 # Case where one matches and other doesn't (SOP=2a but EOP!=3c, etc.)
+                 # JS ignores this? Or just falls through?
+                 # logic: if(SOP != "2a" && EOP != "3c")
+                 # This condition is FALSE if SOP=="2a" (regardless of EOP)
+                 # This condition is FALSE if EOP=="3c" (regardless of SOP)
+                 # So if partial match, it does NOTHING in JS logic loop.
+                 # But we are in a while True loop here. If we skip, we should continue to next read?
+                 # However, we've read a block. If it's invalid, we probably should fail or just log and continue?
+                 # JS code has this inside `port.on("data", ...)` accumulating buffer.
+                 # But here we blocked reading until 1024 chars.
+                 # If we return/fail here, we stop the process.
+                 # Let's fail safe.
+                 callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
+                 # ser.close()
+                 turn_BL_Detect_Low()
+                 callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
+                 return
 
-                    SOP = f"{buffer_bytes[0]:02x}"
-                    EOP = f"{buffer_bytes[509]:02x}"
-                    firmware_v1 = buffer_bytes[393]
-                    firmware_v2 = buffer_bytes[394]
+            if not validated:
+                 # Should have returned error by now if not validated
+                 # ser.close()
+                 try:
+                    turn_BL_Detect_Low()
+                 except:
+                    pass
+                 callback_ui_error("E52 - Verification Failed")
+                 return
 
-                    if SOP != "2a" or EOP != "3c":
-                        ser.close()
-                        try:
-                            turn_BL_Detect_Low()
-                        except:
-                            pass
-                        callback_ui_error("E52 - Invalid Data Received")
-                        return
-
-                    crc_calc = calculate_crc16(buffer_bytes[:510])
-                    little_end = calculate_little_endian(crc_calc)
-                    crc_recv = buffer_bytes[510:512].hex()
-                    if little_end != crc_recv:
-                        ser.close()
-                        try:
-                            turn_BL_Detect_Low()
-                        except:
-                            pass
-                        callback_ui_error("E52 - Invalid Data Received")
-                        return
-
-                    is_encryption_enable = get_encryption_flag_from_fw(firmware_v1, firmware_v2)
-
+            # If we are here, data is valid and buffer_bytes contains the correct data (decrypted if needed)
+            # Re-convert buffer_bytes to hex string for parsing if we want consistency, 
+            # OR just use buffer_bytes indices. 
+            # parse_du_and_display expects HEX string.
+            # If we decrypted, buffer_bytes is decrypted. We should convert it back to hex for parsing function.
+            final_hex = buffer_bytes.hex()
+            
+            try:
+                du_number, display_number = parse_du_and_display_from_hex(final_hex)
             except Exception as e:
-                ser.close()
+                # ser.close()
                 try:
                     turn_BL_Detect_Low()
                 except:
                     pass
-                callback_ui_error(f"Error validating data: {e}")
-                return
-
-            # Passed validation — extract DU & Display numbers
-            try:
-                du_number, display_number = parse_du_and_display_from_hex(first_block_hex)
-            except Exception as e:
-                ser.close()
-                turn_BL_Detect_Low()
                 callback_ui_error(f"Parsing DU/Display failed: {e}")
                 return
 
 
             # close serial and pull BL pin low like JS
-            try:
-                ser.close()
-            except:
-                pass
+            # try:
+            #     ser.close()
+            # except:
+            #     pass
             try:
                 turn_BL_Detect_Low()
             except:
@@ -283,45 +313,18 @@ def read_du_from_serial(
             callback_ui_message(f"DU detected: {du_number}, Display: {display_number}")
 
             # Now call DU_Update API to get file list
-            server_url = os.getenv("SERVER_URL")
-            device_id = os.getenv("DEVICE_ID", "")
-            if not server_url:
-                callback_ui_error("SERVER_URL not configured")
-                return
-
             callback_ui_message("Querying server for DU update list...")
-            try:
-                resp = requests.get(
-                    f"{server_url}api/dispenserUnit/DU_Update",
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "deviceID": f"{device_id}",
-                        "duNumber": str(du_number),
-                        "displayNumber": str(display_number),
-                    },
-                    timeout=20,
-                )
-            except Exception as e:
-                callback_ui_error(f"Error contacting server: {e}")
-                return
-
-            if resp.status_code != 200:
-                # try to parse error message
-                try:
-                    msg = resp.json().get("message", resp.text)
-                except Exception:
-                    msg = resp.text
-                if isinstance(msg, str) and "No DU Assigned" in msg:
-                    callback_ui_error("No DU Assigned")
-                else:
-                    callback_ui_error(f"DU_Update error: HTTP {resp.status_code}")
-                return
-
-            try:
-                options = resp.json().get("response")
-            except Exception as e:
-                callback_ui_error(f"Malformed DU_Update response: {e}")
-                return
+            
+            success, options_or_msg, _ = fetch_du_list(token, du_number, display_number)
+            
+            if not success:
+                 if "No DU Assigned" in str(options_or_msg):
+                      callback_ui_error("No DU Assigned")
+                 else:
+                      callback_ui_error(f"DU_Update error: {options_or_msg}")
+                 return
+            
+            options = options_or_msg
 
             # success: return options to UI
             callback_ui_success({
@@ -341,13 +344,20 @@ def read_du_from_serial(
         return
 
 
+
 # helpers used above
-def _parse_du_and_display(buf: bytes):
-    du_number = int.from_bytes(buf[2:10], byteorder="big")
-    display_number = int.from_bytes(buf[10:18], byteorder="big")
-    return du_number, display_number
+
+def parse_du_and_display_from_hex(hex_str: str):
+    """
+    EXACT JS BEHAVIOR:
+    duNumber     = Number("0x" + receivedData.slice(2, 10))
+    displayNumber= Number("0x" + receivedData.slice(10,18))
+    """
+    du_hex = hex_str[2:10]          # hex characters, not bytes
+    display_hex = hex_str[10:18]
+
+    return int(du_hex, 16), int(display_hex, 16)
 
 
-def get_encryption_flag_from_fw(fw1: int, fw2: int) -> bool:
-    # port of your JS getEncryptionFlag (adjust if your JS uses different logic)
-    return get_encryption_flag(fw1, fw2) if 'get_encryption_flag' in globals() else (fw1 >= 11 and fw2 >= 8)
+
+

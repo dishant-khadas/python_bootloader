@@ -371,31 +371,54 @@ class ProgramPage(ttk.Frame):
     def start_program_logic(self):
         print("Starting Program Logic - Fetching from Server")
         
-        # Hardcoded for testing as requested
-        du_number = 99000000
-        display_number = 12000000
+        # read_du_from_serial
+        from du_reader import read_du_from_serial
 
-        from du_api import fetch_du_list
+        # Get DownloadPage reference
+        dp = self.controller.frames[DownloadPage]
+        dp.file_id = None # Generic loading mode
+        self.controller.show_frame(DownloadPage)
 
-        def run_fetch():
-            token = self.controller.token
-            success, result, is_enc = fetch_du_list(token, du_number, display_number)
-            
-            if success:
-                self.controller.after(0, lambda: self.ui_success(result, is_enc))
-            else:
-                self.controller.after(0, lambda: self.ui_error(result))
+        def on_ui_message(msg):
+             print(f"[DU Reader] {msg}")
+             self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
-        threading.Thread(target=run_fetch, daemon=True).start()
+        def on_ui_success(data):
+             # data = {duNumber, displayNumber, options, isEncryptionEnable}
+             self.controller.after(0, lambda: self.ui_success(data))
 
-    def ui_success(self, options, is_enc):
+        def on_ui_error(err_msg):
+             print(f"[DU Reader Error] {err_msg}")
+             # Switch to ErrorPage
+             self.controller.after(0, lambda: self.controller.show_error("Operation Failed", err_msg, ProgramPage))
+
+        def run_thread():
+             token = self.controller.token
+             read_du_from_serial(
+                 token=token,
+                 callback_ui_message=on_ui_message,
+                 callback_ui_success=on_ui_success,
+                 callback_ui_error=on_ui_error
+             )
+
+        threading.Thread(target=run_thread, daemon=True).start()
+
+    def ui_success(self, data):
+        options = data.get("options", {})
+        is_enc = data.get("isEncryptionEnable", False)
+        du_num = data.get("duNumber")
+        disp_num = data.get("displayNumber")
+
         print("SUCCESS — DU List:", options)
-        # MessageBox removed for better UX
-        # Save DU response for next page (file list)
-        self.controller.du_options = options
+        
+        # Save info for next page
+        self.controller.du_options = options # The options from API (fileName, fileId etc)
+        # We might want to save duNumber/displayNumber too if needed
+        self.controller.du_options["duNumber"] = du_num
+        self.controller.du_options["displayNumber"] = disp_num
+        
         self.controller.is_encryption_enable = is_enc
-        self.controller.du_options = options
-        self.controller.is_encryption_enable = is_enc
+        
         self.controller.show_frame(FileSelectionPage)
 
     def ui_error(self, msg):
@@ -429,12 +452,15 @@ class DownloadPage(ttk.Frame):
 
     def on_show(self):
         # Reset UI
-        self.status_label.config(text="Starting download...")
         self.progress.start(10)
         
         # Start download if file_id is set
         if hasattr(self, 'file_id') and self.file_id:
+             self.status_label.config(text="Starting download...")
              threading.Thread(target=self.start_download_logic, args=(self.file_id,), daemon=True).start()
+        else:
+             # Generic wait state (e.g. Serial Reading)
+             self.status_label.config(text="Please wait...")
 
     def start_download(self, file_id):
         self.file_id = file_id
