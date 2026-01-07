@@ -464,9 +464,6 @@ class DownloadPage(ttk.Frame):
 
     def start_download(self, file_id):
         self.file_id = file_id
-        # on_show will be called by show_frame, or we can just start here if we manually called show_frame first
-        # But let's rely on on_show for cleaner lifecycle if possible, or just call logic
-        # self.start_download_logic(file_id) # Waiting for on_show is better if show_frame calls it
 
     def start_download_logic(self, file_id):
         token = self.controller.token
@@ -484,6 +481,9 @@ class DownloadPage(ttk.Frame):
         def on_err(err_text):
             self.controller.after(0, lambda: self.download_error(err_text))
 
+        def on_serialPort(err_text):
+            self.controller.after(0, lambda: self.serialPort_error(f"Serial Port Error: {err_text}"))
+
         download_and_flash(
             file_id=file_id,
             token=token,
@@ -491,7 +491,7 @@ class DownloadPage(ttk.Frame):
             is_encryption_enable=is_enc,
             callback_message=on_msg,
             callback_success=on_success,
-            callback_error=on_err
+            callback_error=on_serialPort
         )
 
     def download_success(self, res):
@@ -509,6 +509,12 @@ class DownloadPage(ttk.Frame):
         # Redirect to ErrorPage, which usually goes BACK. 
         # User requested: "redirect to login page" from error page
         self.controller.show_error("Download Failed", err_text, return_frame=LoginPage)
+
+    def serialPort_error(self, err_text):
+        self.progress.stop()
+        self.status_label.config(text="Serial Port Error", foreground="red")
+        self.controller.show_error("Serial Port Error", err_text, return_frame=LoginPage)
+        
 
 
 
