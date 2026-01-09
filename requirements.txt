@@ -1,0 +1,7 @@
+ttkbootstrap
+pycryptodome
+boto3
+requests
+Pillow
+python-dotenv
+pyserial
