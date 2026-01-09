@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import font as tkfont
+import time
 
 
 class T9Keypad(tk.Frame):
@@ -25,6 +26,7 @@ class T9Keypad(tk.Frame):
         self.close_callback = close_callback
         self.lm = layout_manager
         self.numpad_mode = False  # Default to T9 mode
+        
         
         # Define T9 key mappings
         self.cap_keys = [
@@ -93,6 +95,8 @@ class T9Keypad(tk.Frame):
         self.t9_keys = self.cap_keys  # Start with capital letters
         self.last_key = None
         self.cycle_index = 0
+        self.last_press_time = 0
+        self.multi_tap_delay = 0.7
         self.timeout_id = None
         self.buttons = {}
         
@@ -188,6 +192,7 @@ class T9Keypad(tk.Frame):
             return
         
         letters = key_obj["letters"]
+        now = time.time()
         
         # T9 mode with cycling
         if key == "10":
@@ -198,47 +203,43 @@ class T9Keypad(tk.Frame):
             for widget in self.winfo_children():
                 widget.destroy()
             self.create_keyboard()
+            self.last_key = None
             print(f"Layout switched to {self.layout_number}")
         elif key == "11":
             # Backspace
             self.add_backspace()
+            self.last_key = None
         else:
+            cursor = self.target.index("insert")
+            if cursor != len(self.target.get()):
+                self.last_key = None
+            same_key_quickly = (
+                key == self.last_key and now-self.last_press_time < self.multi_tap_delay
+            )
             # Character input with cycling
-            if key == self.last_key:
-                # Same key pressed - cycle to next letter
-                new_index = (self.cycle_index + 1) % len(letters)
-                current_char = letters[new_index]
-                
-                # Delete last character first, then add new one
-                self.add_backspace()
-                self.cycle_index = new_index
-                
-                # Clear previous timeout
-                if self.timeout_id:
-                    self.after_cancel(self.timeout_id)
+            if same_key_quickly:
+                self.cycle_index = (self.cycle_index + 1) % len(letters)
+                if cursor > 0:
+                    self.target.delete(cursor-1, cursor)
+                current_char = letters[self.cycle_index]
             else:
-                # Different key pressed
-                current_char = letters[0]
-                self.last_key = key
                 self.cycle_index = 0
+                current_char = letters[0]
             
-            # Add the character
             self.add_char(current_char)
-            
-            # Set timeout to reset last_key after 3 seconds
-            if self.timeout_id:
-                self.after_cancel(self.timeout_id)
-            self.timeout_id = self.after(3000, self.reset_last_key)
+            self.last_key = key
+            self.last_press_time = now
+    
     
     def add_char(self, char):
         """Add character to target entry"""
-        self.target.insert(tk.END, char)
+        self.target.insert("insert", char)
     
     def add_backspace(self):
         """Remove last character from target entry"""
-        text = self.target.get()
-        if text:
-            self.target.delete(len(text)-1)
+        cursor=self.target.index("insert")
+        if cursor > 0:
+            self.target.delete(cursor-1, cursor)
     
     def reset_last_key(self):
         """Reset the last key after timeout"""
