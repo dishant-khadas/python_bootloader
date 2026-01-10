@@ -99,6 +99,12 @@ class T9Keypad(tk.Frame):
         self.multi_tap_delay = 0.7
         self.timeout_id = None
         self.buttons = {}
+
+        # Initialize fonts once
+        main_size = self.lm.scaled(20) if self.lm else 20
+        sub_size = self.lm.scaled(10) if self.lm else 10
+        self.main_font = tkfont.Font(family="Arial", size=main_size, weight="bold")
+        self.sub_font = tkfont.Font(family="Arial", size=sub_size)
         
         # Create UI
         self.create_keyboard()
@@ -116,31 +122,24 @@ class T9Keypad(tk.Frame):
             keyboard_frame.rowconfigure(i, weight=1)
         
         # Create buttons
-        self.render_buttons(keyboard_frame)
+        self.create_buttons(keyboard_frame)
     
-    def render_buttons(self, parent):
-        """Render keyboard buttons"""
-        # Clear existing buttons
-        for widget in parent.winfo_children():
-            widget.destroy()
+    def create_buttons(self, parent):
+        """Create button widgets once"""
         self.buttons.clear()
-        
-        # Font settings (scaled if layout manager available)
-        main_size = self.lm.scaled(20) if self.lm else 20
-        sub_size = self.lm.scaled(10) if self.lm else 10
-        main_font = tkfont.Font(family="Arial", size=main_size, weight="bold")
-        sub_font = tkfont.Font(family="Arial", size=sub_size)
         
         # Create 3x4 grid of buttons
         pad_val = self.lm.scaled(5) if self.lm else 5
         
-        for idx, key_obj in enumerate(self.t9_keys):
+        # We process keys in order, mapping them to 1-9, *, 0, # equivalent positions
+        # The key definitions in self.t9_keys match the 12 positions
+        
+        for idx in range(12):
             row = idx // 3
             col = idx % 3
             
-            key_num = key_obj["number"]
-            main_text = key_obj["letters"][0]
-            sub_text = "".join(key_obj["showletters"])
+            # Use a stable key identifier based on position for widget storage
+            # The actual logic key (e.g. "1", "2") comes from the current layout object
             
             # Create button frame to hold main and sub text
             btn_frame = tk.Frame(
@@ -155,8 +154,8 @@ class T9Keypad(tk.Frame):
             # Main text label
             main_label = tk.Label(
                 btn_frame,
-                text=main_text,
-                font=main_font,
+                text="",
+                font=self.main_font,
                 bg="#f0f0f0",
                 fg="#333333"
             )
@@ -165,26 +164,65 @@ class T9Keypad(tk.Frame):
             # Sub text label
             sub_label = tk.Label(
                 btn_frame,
-                text=sub_text,
-                font=sub_font,
+                text="",
+                font=self.sub_font,
                 bg="#f0f0f0",
                 fg="#666666"
             )
             sub_label.pack()
             
-            # Disable key 10 in numpad mode
+            # Store widgets
+            self.buttons[idx] = {
+                "frame": btn_frame,
+                "main": main_label,
+                "sub": sub_label
+            }
+
+            # Bind events (using closure to capture current index)
+            # We bind to the specific index, and look up the key at runtime
+            btn_frame.bind("<Button-1>", lambda e, i=idx: self.handle_key_press_by_index(i))
+            main_label.bind("<Button-1>", lambda e, i=idx: self.handle_key_press_by_index(i))
+            sub_label.bind("<Button-1>", lambda e, i=idx: self.handle_key_press_by_index(i))
+
+        # Initial populate
+        self.update_buttons()
+
+    def update_buttons(self):
+        """Update text and style of existing buttons based on current layout"""
+        for idx, key_obj in enumerate(self.t9_keys):
+            if idx not in self.buttons:
+                continue
+
+            widgets = self.buttons[idx]
+            btn_frame = widgets["frame"]
+            main_label = widgets["main"]
+            sub_label = widgets["sub"]
+
+            key_num = key_obj["number"]
+            main_text = key_obj["letters"][0]
+            sub_text = "".join(key_obj["showletters"])
+
+            # Update text
+            main_label.config(text=main_text)
+            sub_label.config(text=sub_text)
+
+            # Update style for visual feedback / specific keys
+            # Disable key 10 in numpad mode handling
             if self.numpad_mode and key_num == "10":
                 btn_frame.config(bg="#d0d0d0", cursor="")
                 main_label.config(bg="#d0d0d0", fg="#999999")
                 sub_label.config(bg="#d0d0d0")
             else:
-                # Bind click events to all widgets
-                btn_frame.bind("<Button-1>", lambda e, k=key_num: self.handle_key_press(k))
-                main_label.bind("<Button-1>", lambda e, k=key_num: self.handle_key_press(k))
-                sub_label.bind("<Button-1>", lambda e, k=key_num: self.handle_key_press(k))
-            
-            self.buttons[key_num] = (btn_frame, main_label, sub_label)
-    
+                 btn_frame.config(bg="#f0f0f0", cursor="hand2")
+                 main_label.config(bg="#f0f0f0", fg="#333333")
+                 sub_label.config(bg="#f0f0f0", fg="#666666")
+
+    def handle_key_press_by_index(self, index):
+        """Indirect handler to lookup clean key object"""
+        if 0 <= index < len(self.t9_keys):
+            key_obj = self.t9_keys[index]
+            self.handle_key_press(key_obj["number"])
+
     def handle_key_press(self, key):
         """Handle key press events"""
         key_obj = next((k for k in self.t9_keys if k["number"] == key), None)
@@ -199,10 +237,10 @@ class T9Keypad(tk.Frame):
             # Switch layout
             self.layout_number = (self.layout_number + 1) % len(self.layouts)
             self.t9_keys = self.layouts[self.layout_number]
-            # Re-render entire keyboard
-            for widget in self.winfo_children():
-                widget.destroy()
-            self.create_keyboard()
+            
+            # Efficient update: just change text, don't recreate widgets
+            self.update_buttons()
+            
             self.last_key = None
             print(f"Layout switched to {self.layout_number}")
         elif key == "11":
