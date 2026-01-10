@@ -269,15 +269,21 @@ class T9Keypad(tk.Frame):
             self.last_press_time = now
     
     
+    def set_target(self, target_entry):
+        """Update the target entry widget"""
+        self.target = target_entry
+
     def add_char(self, char):
         """Add character to target entry"""
-        self.target.insert("insert", char)
+        if self.target:
+             self.target.insert("insert", char)
     
     def add_backspace(self):
         """Remove last character from target entry"""
-        cursor=self.target.index("insert")
-        if cursor > 0:
-            self.target.delete(cursor-1, cursor)
+        if self.target:
+             cursor=self.target.index("insert")
+             if cursor > 0:
+                 self.target.delete(cursor-1, cursor)
     
     def reset_last_key(self):
         """Reset the last key after timeout"""

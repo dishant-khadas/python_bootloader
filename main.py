@@ -294,20 +294,23 @@ class WifiPasswordPage(ttk.Frame):
         ttk.Button(self, text="Connect", padding=lm.scaled(12), bootstyle=PRIMARY,
                    command=self.start_connect).pack(pady=lm.scaled(15))
 
+        # Initialize keyboard (hidden)
+        self.keyboard = T9Keypad(self, self.password_entry, self.close_keyboard, self.controller.lm)
+        self.keyboard_visible = False
+
     def toggle_password(self):
         cur = self.password_entry.cget("show")
         self.password_entry.config(show="" if cur == "*" else "*")
 
     def open_keyboard(self, _):
-        self.close_keyboard()
-        # Pass layout manager for scaling
-        self.keyboard = T9Keypad(self, self.password_entry, self.close_keyboard, self.controller.lm)
-        self.keyboard.pack(side="bottom", fill="x")
+        if not self.keyboard_visible:
+            self.keyboard.pack(side="bottom", fill="x")
+            self.keyboard_visible = True
 
     def close_keyboard(self):
-        if self.keyboard:
-            self.keyboard.destroy()
-            self.keyboard = None
+        if self.keyboard_visible:
+            self.keyboard.pack_forget()
+            self.keyboard_visible = False
 
     def start_connect(self):
         pwd = self.password_entry.get()
@@ -816,18 +819,23 @@ class LoginPage(ttk.Frame):
     def toggle_password(self):
         cur = self.password.cget("show")
         self.password.config(show="" if cur == "*" else "*")
+        
+    def _create_keyboard_if_needed(self):
+        if not self.keyboard:
+             self.keyboard = T9Keypad(self, None, self.close_keyboard, self.controller.lm)
 
     # Open keyboard
     def open_keyboard(self, entry):
-        self.close_keyboard()
-        self.keyboard = T9Keypad(self, entry, self.close_keyboard, self.controller.lm)
+        self._create_keyboard_if_needed()
+        self.keyboard.set_target(entry)
+        
+        # Only pack if not already visible (optional check, pack is idempotent but good practice)
         self.keyboard.pack(side="bottom", fill="x")
 
     # Close keyboard
     def close_keyboard(self):
         if self.keyboard:
-            self.keyboard.destroy()
-            self.keyboard = None
+            self.keyboard.pack_forget()
             
 class ErrorPage(ttk.Frame):
     def __init__(self, parent, controller):
