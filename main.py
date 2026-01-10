@@ -239,7 +239,7 @@ class WifiListPage(ttk.Frame):
         self.listbox.insert(tk.END, "")
         for idx, s in enumerate(ssids):
             # Add WiFi icon and padding
-            self.listbox.insert(tk.END, f"  📶  {s}")
+            self.listbox.insert(tk.END, f"  >  {s}")
             # Add spacing between networks (except after last one)
             if idx < len(ssids) - 1:
                 self.listbox.insert(tk.END, "")
@@ -250,8 +250,8 @@ class WifiListPage(ttk.Frame):
             return
         selected_text = self.listbox.get(selection[0]).strip()
         # Remove WiFi icon and extra spaces to get the actual SSID
-        if selected_text.startswith("📶"):
-            ssid = selected_text.replace("📶", "").strip()
+        if selected_text.startswith(">"):
+            ssid = selected_text.replace(">", "").strip()
         else:
             ssid = selected_text
         
@@ -285,7 +285,7 @@ class WifiPasswordPage(ttk.Frame):
         self.password_entry.pack(side="left", fill="x", expand=True, ipady=lm.scaled(6))
 
         # Show password button
-        ttk.Button(pw_field_frame, text="👁", width=4, bootstyle=INFO,
+        ttk.Button(pw_field_frame, text="Show", bootstyle=INFO,
                    command=self.toggle_password).pack(side="left", padx=lm.scaled(8))
 
         self.password_entry.bind("<FocusIn>", self.open_keyboard)
@@ -720,7 +720,7 @@ class LoginPage(ttk.Frame):
 
         # Eye icon button positioned on top of the entry field (right side)
         self.eye_btn = ttk.Button(
-            pw_frame, text="👁", width=3, bootstyle=INFO,
+            pw_frame, text="Show", bootstyle=INFO,
             command=self.toggle_password
         )
         # Place the button on the right side of the entry
