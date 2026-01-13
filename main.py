@@ -667,7 +667,6 @@ class ProgramPage(ttk.Frame):
             ),
             daemon=True
         ).start()
-
     # inside ProgramPage class - on file selected & Download button pressed
     def on_download_and_flash(self, selected_file_id):
         token = self.controller.token
