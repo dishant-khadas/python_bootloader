@@ -170,12 +170,11 @@ def wait_for_wifi_connected(ssid: str, timeout: int = 15) -> bool:
                         ["nmcli","-t","-f","ACTIVE,SSID","dev","wifi"],
                         text=True,
                         errors="ignore"
-                    )
+                    ).strip()
                     for line in out.splitlines():
                         if line.startswith("yes:"):
-                            current_ssid = line.split(":", 1)[1].strip().lower()
-                            if current_ssid == target:
-                                return True
+                            current_ssid = line.split("yes:", 1)[1].strip().lower()
+                            return current_ssid == target
         except Exception:
             pass
         
