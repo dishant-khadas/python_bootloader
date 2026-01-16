@@ -1,6 +1,7 @@
 import subprocess
 import platform
 import time
+import socket
 
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -78,6 +79,12 @@ def connect_wifi(ssid, password):
                 f.write(profile_xml)
             
             try:
+                subprocess.run(
+                    f'netsh wlan delete profile name="{ssid}"',
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
                 # Add the profile
                 subprocess.check_output(
                     f'netsh wlan add profile filename="{profile_path}"',
@@ -110,6 +117,11 @@ def connect_wifi(ssid, password):
             return False
 
     try:
+        subprocess.run(
+            ["nmcli","connection","delete",ssid],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
         cmd = f"nmcli dev wifi connect '{ssid}' password '{password}'"
         result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return result.returncode == 0
@@ -118,15 +130,61 @@ def connect_wifi(ssid, password):
 
 def check_internet():
     if IS_WINDOWS:
-        print("[MOCK] Checking internet connection...")
-        time.sleep(1)
-        return True
-
+        try:
+            subprocess.check_output("ping -n 1 8.8.8.8", shell=True)
+            return True
+        except:
+            return False
+def disconnect_wifi()-> None:
     try:
-        subprocess.check_output("ping -c 1 8.8.8.8", shell=True)
-        return True
-    except:
-        return False
+        if platform.system()=="Windows":
+            subprocess.run(["netsh","wlan","disconnect"], capture_output=True, text=True)
+        else:
+            subprocess.run(["nmcli","dev","disconnect","wlan0"], capture_output=True, text=True)
+    except Exception:
+        pass
+def wait_for_wifi_connected(ssid: str, timeout: int = 15) -> bool:
+    start = time.time()
+    target = (ssid or "").strip().lower()
+    
+    while time.time() - start < timeout:
+        try:
+            if IS_WINDOWS:
+                out = subprocess.check_output(
+                    "netsh wlan show interfaces",
+                    shell=True,
+                    text=True,
+                    errors="ignore"
+                ).lower()
+                
+            
+                if "state" in out and "connected" in out:
+                    if "ssid" in out and target in out:
+                        return True
+                    
+                    if "state" in out and "disconnected" in out:
+                        return False
+                    
+                else:
+                    out= subprocess.check_output(
+                        ["nmcli","-t","-f","ACTIVE,SSID","dev","wifi"],
+                        text=True,
+                        errors="ignore"
+                    )
+                    for line in out.splitlines():
+                        if line.startswith("yes:"):
+                            current_ssid = line.split(":", 1)[1].strip().lower()
+                            if current_ssid == target:
+                                return True
+        except Exception:
+            pass
+        
+        time.sleep(0.5)
+        
+    return False
+    
+
+
 
 def get_connected_ssid():
     if IS_WINDOWS:
@@ -162,3 +220,12 @@ def get_connected_ssid():
         return None
     except:
         return None
+def has_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8",80))
+        ip = s.getsockname()[0]
+        s.close()
+        return bool(ip) and not ip.startswith("127.")
+    except:
+        return False

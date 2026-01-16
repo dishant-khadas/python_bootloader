@@ -1,7 +1,7 @@
 import tkinter as tk
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
-from wifi_utils import scan_wifi, connect_wifi, check_internet, get_connected_ssid
+from wifi_utils import scan_wifi, connect_wifi, check_internet, get_connected_ssid, has_ip, wait_for_wifi_connected, disconnect_wifi
 from t9_keypad import T9Keypad
 from tkinter import messagebox
 from ui_utils import LayoutManager
@@ -113,9 +113,15 @@ class WifiListPage(ttk.Frame):
         super().__init__(parent)
         self.controller = controller
         lm = self.controller.lm
+        top_frame = ttk.Frame(self)
+        top_frame.pack(fill="x")
+        middle_frame = ttk.Frame(self)
+        middle_frame.pack(fill="both", expand=True)
+        bottom_frame = ttk.Frame(self)
+        bottom_frame.pack(fill="x")
 
         # Title with better spacing
-        ttk.Label(self, text="Available Networks", font=lm.font(24), foreground="white").pack(pady=lm.scaled(20))
+        ttk.Label(top_frame, text="Available Networks", font=lm.font(24), foreground="white").pack(pady=lm.scaled(20))
         # OLD TTK List box code
         # Listbox with better styling
        # self.listbox = tk.Listbox(
@@ -135,24 +141,26 @@ class WifiListPage(ttk.Frame):
        # ) 
        # self.listbox.pack(fill="both", expand=True, padx=lm.scaled(25), pady=lm.scaled(50))
     #list_container canvas with better styling for rendering Wi-Fi Networks in a smmoth and efficient manner
-        list_container = ttk.Frame(self)
-        list_container.pack(fill="both", expand=True)
+        
+        list_container = ttk.Frame(middle_frame)
+        list_container.pack(fill="both", expand=True, padx=lm.scaled(80), pady=lm.scaled(10))
         self.canvas = tk.Canvas(list_container, bg="#2d2d2d", highlightthickness=0)
-        self.canvas.pack(side="left",fill="both", expand=True, padx=lm.scaled(30), pady=lm.scaled(20))
-        self.scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.canvas.yview)
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar = tk.Scrollbar(list_container, orient="vertical", command=self.canvas.yview, width=18)
         self.scrollbar.pack(side="right", fill="y")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.list_frame=ttk.Frame(self.canvas)
-        self.canvas.create_window((0,0), window=self.list_frame, anchor="nw")
+        self.canvas_window=self.canvas.create_window((0,0),window=self.list_frame,anchor="nw")
+        self.canvas.bind("<Configure>", self._on_canvas_resize)
         self.list_frame.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
-        btn_row = ttk.Frame(self)
-        btn_row.pack(pady=(0, lm.scaled(10)))
+        btn_row = ttk.Frame(bottom_frame)
+        btn_row.pack(pady= lm.scaled(10))
         # Refresh button with better styling for rescanning the list of WiFi Networks
         ttk.Button(
-            self,
+            btn_row,
             text="Refresh",
             padding=lm.scaled(12),
             bootstyle=SECONDARY,
@@ -160,7 +168,7 @@ class WifiListPage(ttk.Frame):
         ).pack(side="left",padx= lm.scaled(10))
         # Add Network for manually entering WiFi Network SSID and Password
         ttk.Button(
-            self,
+            btn_row,
             text="Add Network",
             padding=lm.scaled(10),
             bootstyle=INFO,
@@ -169,12 +177,12 @@ class WifiListPage(ttk.Frame):
         
         # Next button with better styling
         ttk.Button(
-            self, 
+            bottom_frame, 
             text="Next", 
             padding=lm.scaled(15), 
             bootstyle=SUCCESS,
             command=self.go_next
-        ).pack(pady=lm.scaled(25))
+        ).pack(pady=lm.scaled(15))
     # Controls for navigating through the list of Wi-Fi Networks
         self.network_buttons = []
         self.selected_index = 0
@@ -185,9 +193,25 @@ class WifiListPage(ttk.Frame):
         self.canvas.bind("<ButtonPress-1>", self._on_touch_start)
         self.canvas.bind("<B1-Motion>", self._on_touch_move)
         self.bind_all("<MouseWheel>", self._on_mousewheel)
+    # Windows / Mac scroll feature function to scroll over the list of WiFi-Networks
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+    # Linux scroll wheel
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel_linux)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel_linux)
+    # Touchscreen drag scrolling
+        self.canvas.bind_all("<ButtonPress-1>", self._on_touch_start)
+        self.canvas.bind_all("<B1-Motion>", self._on_touch_move)
+    # Keyboard focus for arrow scrolling
+        self.bind_all("<Up>", self.on_up_key)
+        self.bind_all("<Down>", self.on_down_key)
     # Scroll feature function to scroll over the list of WiFi-Networks
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(-1 * (event.delta // 120), "units")
+    def _on_mousewheel_linux(self, event):
+        if event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
     def _on_touch_start(self, event):
         self.canvas.scan_mark(event.x, event.y)
     def _on_touch_move(self, event):
@@ -222,7 +246,11 @@ class WifiListPage(ttk.Frame):
         if self.network_buttons:
             self._highlight_selected()
             self.after(50, lambda: self.network_buttons[0].focus_set())
-    
+    def _center_list_frame(self, event=None):
+        canvas_width = self.canvas.winfo_width()
+        self.canvas.itemconfig(self.canvas_window, canvas_width // 2, 0)
+    def _on_canvas_resize(self, event):
+        self.canvas.itemconfig(self.canvas_window, width=event.width)
     # OLD go_next function      
     #def go_next(self):
       #selection = self.listbox.curselection()
@@ -382,16 +410,24 @@ class WifiPasswordPage(ttk.Frame):
 
     def process_connect(self):
         connecting_page = self.controller.frames[WifiConnectingPage]
-
-        # Step 1: try to connect
-        ok = connect_wifi(self.controller.selected_ssid, self.controller.wifi_password)
+        
+        ssid=self.controller.selected_ssid
+        pwd=self.controller.wifi_password
+        
+        disconnect_wifi()
         time.sleep(1)
 
+        # Step 1: try to connect
+        connect_wifi(ssid, pwd)
+       # time.sleep(1)
+        connected = wait_for_wifi_connected(ssid, timeout=20)
+        
         # Check if user cancelled during connect
-        if connecting_page.is_cancelled:
-            return
+        #if connecting_page.is_cancelled:
+            #return
 
-        if not ok:
+        if not connected:
+            self.controller.wifi_password = None
             self.controller.after(0, lambda: self.controller.show_error(
                 title="Wrong Password", 
                 message="Incorrect password. Try again.",
@@ -399,26 +435,24 @@ class WifiPasswordPage(ttk.Frame):
                 )
             )
             return
-        self.controller.after(0, lambda: self.controller.show_frame(ScanPage))
-            
-
-        # Step 2: check internet
+       # self.controller.after(0, lambda: self.controller.show_frame(ScanPage))
         connecting_page.set_text("Checking Internet...")
         time.sleep(1)
-
-        # Check if user cancelled during checking
+        
         if connecting_page.is_cancelled:
             return
-
         if not check_internet():
-            self.controller.after(0, lambda: messagebox.showerror(
-                "No Internet",
-                "Connected to WiFi but no internet. Try another network."
-            ))
-            self.controller.after(0, lambda: self.controller.show_frame(ScanPage))
+            self.controller.wifi_password = None
+            self.controller.after(0, lambda: self.controller.show_error(
+                title="No Internet or Incorrect WiFi Password",
+                message="Cannot connected to WiFi. Try another network.",
+                return_frame=ScanPage
+                )
+            )
             return
-
+        
         # Success
+        self.controller.wifi_password = None
         self.controller.after(0, lambda: self.controller.show_frame(LoginPage))
 #------------PAGE 3.1 : Manual WiFi Entry Page ------------#
 class ManualWifiPage(ttk.Frame):
@@ -533,7 +567,7 @@ class ManualWifiPage(ttk.Frame):
     
     def process_connect(self):
         start_time = time.time()
-        TIMEOUT = 15  # seconds
+        TIMEOUT = 5  # seconds
 
         success = False
 
