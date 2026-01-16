@@ -10,7 +10,7 @@ DISPLAY_ON_PIN = 27
 
 # DISPLAY_ON_PIN = int(os.getenv("DISPLAY_ON_PIN", "19"))    # example default
 
-GPIOCHIP = "gpiochip4"  # same as your Node code
+GPIOCHIP = "gpiochip0"  # same as your Node code
 
 
 def run_cmd(cmd):
