@@ -158,11 +158,13 @@ class WifiListPage(ttk.Frame):
         )
         btn_row = ttk.Frame(bottom_frame)
         btn_row.pack(pady= lm.scaled(10))
+        btn_width=10
         # Refresh button with better styling for rescanning the list of WiFi Networks
         ttk.Button(
             btn_row,
             text="Refresh",
-            padding=lm.scaled(12),
+            width=btn_width,
+            padding=lm.scaled(8),
             bootstyle=SECONDARY,
             command=self.refresh_networks   
         ).pack(side="left",padx= lm.scaled(10))
@@ -170,19 +172,21 @@ class WifiListPage(ttk.Frame):
         ttk.Button(
             btn_row,
             text="Add Network",
-            padding=lm.scaled(10),
+            width=12,
+            padding=lm.scaled(8),
             bootstyle=INFO,
             command=lambda: self.controller.show_frame(ManualWifiPage),
-        ).pack(side="left", padx=lm.scaled(10))
+        ).pack(side="left", padx=lm.scaled(13))
         
         # Next button with better styling
         ttk.Button(
-            bottom_frame, 
+            btn_row, 
             text="Next", 
-            padding=lm.scaled(15), 
+            width=btn_width,
+            padding=lm.scaled(8), 
             bootstyle=SUCCESS,
             command=self.go_next
-        ).pack(pady=lm.scaled(15))
+        ).pack(side="right", padx=lm.scaled(10))
     # Controls for navigating through the list of Wi-Fi Networks
         self.network_buttons = []
         self.selected_index = 0
