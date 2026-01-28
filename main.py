@@ -6,13 +6,8 @@ from t9_keypad import T9Keypad
 from tkinter import messagebox
 from ui_utils import LayoutManager
 import os
+from PIL import Image, ImageTk
 
-from gpio_control import (
-    turn_BL_Detect_High,
-    turn_BL_Detect_Low,
-    turn_display_On,
-    turn_display_Off
-)
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -28,7 +23,7 @@ import time
 # ------------ MAIN APP ------------
 class App(ttk.Window):
     def __init__(self):
-        super().__init__(themename="darkly")
+        super().__init__(themename="litera")
         self.title("Setup Wizard")
         # self.attributes("-fullscreen", True)
 
@@ -44,7 +39,28 @@ class App(ttk.Window):
         style = ttk.Style()
         default_btn_size = 12 # Base size for buttons
         style.configure('TButton', font=self.lm.font(default_btn_size))
+        
+        # Custom Combobox Style to remove blue focus ring and match dark theme
+        style.configure('Custom.TCombobox',
+                        fieldbackground='#ffffff',
+                        background='#ffffff',
+                        foreground='black',
+                        arrowcolor='black',
+                        bordercolor='#cccccc',
+                        darkcolor='#f0f0f0',
+                        lightcolor='#ffffff',
+                        borderwidth=1)
+        
+        style.map('Custom.TCombobox',
+                  fieldbackground=[('readonly', '#ffffff')],
+                  selectbackground=[('readonly', '#ffffff')],
+                  selectforeground=[('readonly', 'black')],
+                  bordercolor=[('focus', '#cccccc')],
+                  lightcolor=[('focus', '#cccccc')],
+                  darkcolor=[('focus', '#cccccc')])
 
+        # Global setting for Combobox Dropdown (Listbox) Font
+        self.option_add('*TCombobox*Listbox.font', self.lm.font(14))
 
         self.selected_ssid = None
         self.wifi_password = None
@@ -54,28 +70,102 @@ class App(ttk.Window):
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
-        for Page in (ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, ManualWifiPage, LoginPage, ProgramPage, ErrorPage):
+        for Page in (SplashScreen, ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, FileSelectionPage, DownloadPage, ErrorPage):
            frame = Page(parent=self.container, controller=self)
            frame.place(relwidth=1, relheight=1)
            self.frames[Page] = frame
 
 
-        # ---- Auto-detect WiFi ----
-        ssid = get_connected_ssid()
-        if ssid:
-            self.frames[LoginPage].show_change_wifi_button()
-            self.show_frame(LoginPage)
-        else:
-            self.show_frame(ScanPage)
+        # Show splash screen first
+        self.show_frame(SplashScreen)
 
     def show_frame(self, page):
-        self.frames[page].tkraise()
+        frame = self.frames[page]
+        frame.tkraise()
+        # Optionally call a method like on_show if it exists
+        if hasattr(frame, "on_show"):
+            frame.on_show()
         
     def show_error(self, title, message, return_frame):
         error_page = self.frames[ErrorPage]
         error_page.set_error(title, message, return_frame)
         self.show_frame(ErrorPage)
 
+
+
+
+# ------------ SPLASH SCREEN ------------
+class SplashScreen(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        lm = self.controller.lm
+        
+        # Set background to white
+        self.configure(style='TFrame')
+        
+        # Center container
+        container = ttk.Frame(self)
+        container.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Load and display logo
+        try:
+            # Load the PNG image
+            logo_path = os.path.join(os.path.dirname(__file__), "czar.png")
+            self.original_image = Image.open(logo_path)
+            
+            # Resize to fit nicely on screen
+            max_size = (lm.scaled(300), lm.scaled(300))
+            self.original_image.thumbnail(max_size, Image.Resampling.LANCZOS)
+            
+            # Create PhotoImage
+            self.photo = ImageTk.PhotoImage(self.original_image)
+            
+            # Display image
+            self.logo_label = ttk.Label(container, image=self.photo)
+            # s
+            self.logo_label.pack()
+            ttk.Label(container, text="Please Wait...",font=lm.font(18)).pack(pady=lm.scaled(24))  # Spacer
+
+            
+        except Exception as e:
+            # Fallback if image can't be loaded
+            ttk.Label(container, text="CZAR", font=lm.font(48)).pack()
+            print(f"Error loading splash image: {e}")
+        
+        # Animation state
+        self.alpha = 0.0
+        self.animation_running = False
+    
+    def on_show(self):
+        """Called when the splash screen is shown"""
+        if not self.animation_running:
+            self.animation_running = True
+            self.alpha = 0.0
+            self.animate_fade_in()
+    
+    def animate_fade_in(self):
+        """Fade in animation"""
+        if self.alpha < 1.0:
+            self.alpha += 0.05  # Increment alpha
+            # Note: tkinter doesn't support alpha transparency directly on widgets
+            # So we'll just use a delay and then transition
+            self.after(30, self.animate_fade_in)
+        else:
+            # Animation complete, wait a bit then transition
+            self.after(1000, self.transition_to_next_page)
+    
+    def transition_to_next_page(self):
+        """Transition to the appropriate next page"""
+        self.animation_running = False
+        
+        # Auto-detect WiFi and go to appropriate page
+        ssid = get_connected_ssid()
+        if ssid:
+            self.controller.frames[LoginPage].show_change_wifi_button()
+            self.controller.show_frame(LoginPage)
+        else:
+            self.controller.show_frame(ScanPage)
 
 
 # ------------ PAGE 1: Scan WiFi ------------
@@ -90,7 +180,7 @@ class ScanPage(ttk.Frame):
         container = ttk.Frame(self)
         container.place(relx=0.5, rely=0.5, anchor="center")
 
-        ttk.Label(container, text="Connect to Wi-Fi", font=lm.font(24), foreground="white").pack(pady=lm.scaled(30))
+        ttk.Label(container, text="Connect to Wi-Fi", font=lm.font(24)).pack(pady=lm.scaled(30))
         ttk.Button(container, text="Scan Wi-Fi", padding=lm.scaled(20), bootstyle=PRIMARY,
                    command=self.start_scan).pack(pady=lm.scaled(120))
 
@@ -155,6 +245,23 @@ class WifiListPage(ttk.Frame):
         self.list_frame.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        ttk.Label(self, text="Available Networks", font=lm.font(24)).pack(pady=lm.scaled(20))
+        
+        # Listbox with better styling
+        self.listbox = tk.Listbox(
+            self, 
+            font=lm.font(16), 
+            height=8,  # Show 8 networks at once
+            bg="white",  # White background
+            fg="black",  # Black text
+            selectbackground="#00d4aa",  # Teal selection
+            selectforeground="white",
+            highlightthickness=2,
+            highlightcolor="#00d4aa",
+            highlightbackground="#cccccc",
+            relief="flat",
+            borderwidth=0,
+            activestyle="none"
         )
         btn_row = ttk.Frame(bottom_frame)
         btn_row.pack(pady= lm.scaled(10))
@@ -224,10 +331,15 @@ class WifiListPage(ttk.Frame):
     # and was replaced by a new load_list function
     #def load_list(self, ssids):
         #self.listbox.delete(0, tk.END)
+        ).pack(pady=lm.scaled(40))
+
+    def load_list(self, ssids):
+        self.listbox.delete(0, tk.END)
         # Add empty line at top for spacing
         #for s in (ssids):
             # Add WiFi icon and padding
             #self.listbox.insert(tk.END, f"\n\n  📶  {s}\n\n")
+            self.listbox.insert(tk.END, f"  >  {s}")
             # Add spacing between networks (except after last one)
     # UPDATED load_list function for fetchimg and rendering the WiFi Networks
     def load_list(self, ssids):
@@ -266,6 +378,10 @@ class WifiListPage(ttk.Frame):
             #ssid = selected_text.replace("📶", "").strip()
         #else:
             #ssid = selected_text
+        if selected_text.startswith(">"):
+            ssid = selected_text.replace(">", "").strip()
+        else:
+            ssid = selected_text
         
         # Skip if empty line selected
         #if not ssid:
@@ -360,7 +476,7 @@ class WifiPasswordPage(ttk.Frame):
         self.title_label.pack(pady=lm.scaled(15))
 
         # Password Label
-        ttk.Label(self, text="Password", font=lm.font(12), foreground="white").pack(pady=(lm.scaled(10), lm.scaled(3)))
+        ttk.Label(self, text="Password", font=lm.font(12)).pack(pady=(lm.scaled(10), lm.scaled(3)))
 
         # Password field frame
         pw_field_frame = ttk.Frame(self)
@@ -370,7 +486,7 @@ class WifiPasswordPage(ttk.Frame):
         self.password_entry.pack(side="left", fill="x", expand=True, ipady=lm.scaled(6))
 
         # Show password button
-        ttk.Button(pw_field_frame, text="👁", width=4, bootstyle=INFO,
+        ttk.Button(pw_field_frame, text="Show", bootstyle=INFO,
                    command=self.toggle_password).pack(side="left", padx=lm.scaled(8))
 
         self.password_entry.bind("<FocusIn>", self.open_keyboard)
@@ -385,20 +501,23 @@ class WifiPasswordPage(ttk.Frame):
         ttk.Button(btn_frame, text="Back", padding=lm.scaled(12),bootstyle=SECONDARY,
                    command=lambda: controller.show_frame(ScanPage)).pack(side="right",padx=lm.scaled(15))
 
+        # Initialize keyboard (hidden)
+        self.keyboard = T9Keypad(self, self.password_entry, self.close_keyboard, self.controller.lm)
+        self.keyboard_visible = False
+
     def toggle_password(self):
         cur = self.password_entry.cget("show")
         self.password_entry.config(show="" if cur == "*" else "*")
 
     def open_keyboard(self, _):
-        self.close_keyboard()
-        # Pass layout manager for scaling
-        self.keyboard = T9Keypad(self, self.password_entry, self.close_keyboard, self.controller.lm)
-        self.keyboard.pack(side="bottom", fill="x")
+        if not self.keyboard_visible:
+            self.keyboard.pack(side="bottom", fill="x")
+            self.keyboard_visible = True
 
     def close_keyboard(self):
-        if self.keyboard:
-            self.keyboard.destroy()
-            self.keyboard = None
+        if self.keyboard_visible:
+            self.keyboard.pack_forget()
+            self.keyboard_visible = False
 
     def start_connect(self):
         pwd = self.password_entry.get()
@@ -669,13 +788,15 @@ class ProgramPage(ttk.Frame):
             bootstyle=PRIMARY,
             padding=lm.scaled(30),
             command=self.start_program_logic
-        ).pack(pady=lm.scaled(100))
+        ).pack(pady=lm.scaled(50))
+
+        self.status_label = ttk.Label(self, text="", font=lm.font(14), bootstyle=WARNING)
+        self.status_label.pack(pady=lm.scaled(20))
 
     def start_program_logic(self):
-        print("Turning pins HIGH, LED ON, Display ON")
-        turn_BL_Detect_High()
-        turn_display_On()
-
+        print("Starting Program Logic - Fetching from Server")
+        
+        # read_du_from_serial
         from du_reader import read_du_from_serial
 
         def ui_message(msg):
@@ -707,28 +828,245 @@ class ProgramPage(ttk.Frame):
         ).start()
     # inside ProgramPage class - on file selected & Download button pressed
     def on_download_and_flash(self, selected_file_id):
+        # Get DownloadPage reference
+        dp = self.controller.frames[DownloadPage]
+        dp.file_id = None # Generic loading mode
+        self.controller.show_frame(DownloadPage)
+
+        def on_ui_message(msg):
+             print(f"[DU Reader] {msg}")
+             self.controller.after(0, lambda: dp.status_label.config(text=msg))
+
+        def on_ui_success(data):
+             # data = {duNumber, displayNumber, options, isEncryptionEnable}
+             self.controller.after(0, lambda: self.ui_success(data))
+
+        def on_ui_error(err_msg):
+             print(f"[DU Reader Error] {err_msg}")
+             # Switch to ErrorPage
+             self.controller.after(0, lambda: self.controller.show_error("Operation Failed", err_msg, ProgramPage))
+
+        def run_thread():
+             token = self.controller.token
+             read_du_from_serial(
+                 token=token,
+                 callback_ui_message=on_ui_message,
+                 callback_ui_success=on_ui_success,
+                 callback_ui_error=on_ui_error
+             )
+
+        threading.Thread(target=run_thread, daemon=True).start()
+
+    def ui_success(self, data):
+        options = data.get("options", {})
+        is_enc = data.get("isEncryptionEnable", False)
+        du_num = data.get("duNumber")
+        disp_num = data.get("displayNumber")
+
+        print("SUCCESS — DU List:", options)
+        
+        # Save info for next page
+        self.controller.du_options = options # The options from API (fileName, fileId etc)
+        # We might want to save duNumber/displayNumber too if needed
+        self.controller.du_options["duNumber"] = du_num
+        self.controller.du_options["displayNumber"] = disp_num
+        
+        self.controller.is_encryption_enable = is_enc
+        
+        self.controller.show_frame(FileSelectionPage)
+
+    def ui_error(self, msg):
+        print("ERROR:", msg)
+        messagebox.showerror("Error", msg)
+
+
+class DownloadPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        lm = controller.lm
+
+        self.file_id = None
+
+        # Center Container
+        container = ttk.Frame(self)
+        container.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Title
+        ttk.Label(container, text="Please Wait...", font=lm.font(20)).pack(pady=lm.scaled(30))
+
+        # Spinner (using a label as placeholder or maybe infinite progressbar)
+        self.progress = ttk.Progressbar(container, mode='indeterminate', bootstyle=INFO, length=lm.scaled(300))
+        self.progress.pack(pady=lm.scaled(20))
+        self.progress.start(10)
+
+        # Status Label
+        self.status_label = ttk.Label(container, text="Initializing...", font=lm.font(14), bootstyle=WARNING, wraplength=lm.scaled(400), justify="center")
+        self.status_label.pack(pady=lm.scaled(20))
+
+    def on_show(self):
+        # Reset UI
+        self.progress.start(10)
+        
+        # Start download if file_id is set
+        if hasattr(self, 'file_id') and self.file_id:
+             self.status_label.config(text="Starting download...")
+             threading.Thread(target=self.start_download_logic, args=(self.file_id,), daemon=True).start()
+        else:
+             # Generic wait state (e.g. Serial Reading)
+             self.status_label.config(text="Please wait...")
+
+    def start_download(self, file_id):
+        self.file_id = file_id
+
+    def start_download_logic(self, file_id):
         token = self.controller.token
-        device_id = os.getenv("DEVICE_ID", "UNKNOWN")
-        is_encryption = self.controller.is_encryption_enable if hasattr(self.controller, "is_encryption_enable") else False
+        # device_id logic if needed
+        device_id = "41999990" # Hardcoded or from env
 
-        def ui_msg(s): 
-            print("STATUS:", s)
-            # update a label in GUI via after if needed
-            self.controller.after(0, lambda: self.status_label.config(text=s))
+        is_enc = getattr(self.controller, "is_encryption_enable", False)
 
-        def ui_success(data):
-            print("SUCCESS:", data)
-            self.controller.after(0, lambda: messagebox.showinfo("Success", "Flashed successfully"))
+        def on_msg(text):
+            self.controller.after(0, lambda: self.status_label.config(text=text))
+        
+        def on_success(res):
+            self.controller.after(0, lambda: self.download_success(res))
 
-        def ui_error(err):
-            print("ERROR:", err)
-            self.controller.after(0, lambda: messagebox.showerror("Error", err))
+        def on_err(err_text):
+            self.controller.after(0, lambda: self.download_error(err_text))
 
-        threading.Thread(
-            target=download_and_flash,
-            args=(selected_file_id, token, device_id, is_encryption, ui_msg, ui_success, ui_error),
-            daemon=True
-        ).start()
+        def on_serialPort(err_text):
+            self.controller.after(0, lambda: self.serialPort_error(f"Serial Port Error: {err_text}"))
+
+        download_and_flash(
+            file_id=file_id,
+            token=token,
+            device_id=device_id,
+            is_encryption_enable=is_enc,
+            callback_message=on_msg,
+            callback_success=on_success,
+            callback_error=on_serialPort
+        )
+
+    def download_success(self, res):
+        self.progress.stop()
+        self.status_label.config(text="Download & Flash Complete!", foreground="green")
+        # Logic to go somewhere else? Or stay here? 
+        # User didn't specify success page, maybe go back to file selection or program page?
+        # For now, stay here with success message or maybe go to ProgramPage to restart.
+        messagebox.showinfo("Success", "Firmware updated successfully!")
+        self.controller.show_frame(ProgramPage)
+
+    def download_error(self, err_text):
+        self.progress.stop()
+        self.status_label.config(text="Error occurred", foreground="red")
+        # Redirect to ErrorPage, which usually goes BACK. 
+        # User requested: "redirect to login page" from error page
+        self.controller.show_error("Download Failed", err_text, return_frame=LoginPage)
+
+    def serialPort_error(self, err_text):
+        self.progress.stop()
+        self.status_label.config(text="Serial Port Error", foreground="red")
+        self.controller.show_error("Serial Port Error", err_text, return_frame=LoginPage)
+        
+
+
+
+
+class FileSelectionPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        lm = self.controller.lm
+
+        # Center Container
+        container = ttk.Frame(self)
+        container.place(relx=0.5, rely=0.4, anchor="center")
+
+        # Title
+        ttk.Label(container, text="Select Firmware", font=lm.font(24)).pack(pady=lm.scaled(30))
+
+        # DU Info Frame
+        info_frame = ttk.Frame(container)
+        info_frame.pack(fill="x", pady=lm.scaled(20))
+
+        self.du_label = ttk.Label(info_frame, text="DU: --", font=lm.font(16), foreground="#00d4aa")
+        self.du_label.pack(anchor="center", pady=lm.scaled(5))
+        
+        self.disp_label = ttk.Label(info_frame, text="Display: --", font=lm.font(16), foreground="#00d4aa")
+        self.disp_label.pack(anchor="center", pady=lm.scaled(5))
+
+        # Files Dropdown
+        # ttk.Label(container, text="Available Files:", font=lm.font(14)).pack(pady=(lm.scaled(30), lm.scaled(10)))
+
+        self.file_var = tk.StringVar()
+        self.combobox = ttk.Combobox(
+            container, 
+            textvariable=self.file_var,
+            font=lm.font(14),
+            state="readonly",
+            width=30,
+            style="Custom.TCombobox"
+        )
+        self.combobox.pack(pady=lm.scaled(10), ipady=lm.scaled(5))
+
+        # Next Button
+        ttk.Button(
+            container,
+            text="Next",
+            bootstyle=SUCCESS,
+            padding=lm.scaled(15),
+            command=self.on_next
+        ).pack(pady=lm.scaled(40))
+
+    def on_show(self):
+        # Update DU info
+        options = getattr(self.controller, "du_options", {})
+        du_num = options.get("duNumber", "Unknown")
+        disp_num = options.get("displayNumber", "Unknown")
+        
+        self.du_label.config(text=f"DU: {du_num}")
+        self.disp_label.config(text=f"Display: {disp_num}")
+
+        # Update Combobox
+        files = options.get("fileName", [])
+        if not files:
+            self.combobox['values'] = ["No files available"]
+            self.combobox.set("No files available")
+            self.combobox.state(["disabled"])
+        else:
+            self.combobox['values'] = files
+            self.combobox.state(["!disabled"])
+            self.combobox.set("Select File")
+
+    def on_next(self):
+        selected_file = self.file_var.get()
+        if not selected_file or selected_file == "No files available" or selected_file == "Select File":
+            messagebox.showwarning("Selection", "Please select a valid file.")
+            return
+
+        print(f"Next Clicked. Selected: {selected_file}")
+        
+        # Get corresponding fileId if needed
+        options = getattr(self.controller, "du_options", {})
+        file_names = options.get("fileName", [])
+        file_ids = options.get("fileId", [])
+        
+        if selected_file in file_names:
+            idx = file_names.index(selected_file)
+            print("---------------- DEBUG SELECTION ----------------")
+            print(f"Selected File: '{selected_file}'")
+            print(f"Index found: {idx}")
+            print(f"File Names List: {file_names}")
+            print(f"File IDs List: {file_ids}")
+            
+            if idx < len(file_ids):
+                file_id = file_ids[idx]
+                # Trigger the download logic in ProgramPage
+                # Trigger the download logic via DownloadPage
+                download_page = self.controller.frames[DownloadPage]
+                download_page.file_id = file_id
+                self.controller.show_frame(DownloadPage)
 
 
 
@@ -746,25 +1084,36 @@ class LoginPage(ttk.Frame):
         ttk.Label(self, text="Log In", font=lm.font(20)).pack(pady=lm.scaled(15))
 
         # ---- MOBILE LABEL ----
-        ttk.Label(self, text="Mobile Number", font=lm.font(12), foreground="white").pack(pady=(lm.scaled(10), lm.scaled(3)))
+        ttk.Label(self, text="Mobile Number", font=lm.font(12)).pack(pady=(lm.scaled(10), lm.scaled(3)))
 
         self.phone = ttk.Entry(self, font=lm.font(12))
         self.phone.pack(pady=(0, lm.scaled(10)), padx=lm.scaled(40), ipady=lm.scaled(6), fill="x")
         self.phone.bind("<FocusIn>", lambda e: self.open_keyboard(self.phone))
 
         # ---- PASSWORD LABEL ----
-        ttk.Label(self, text="Password", font=lm.font(12), foreground="white").pack(pady=(0, lm.scaled(3)))
+        ttk.Label(self, text="Password", font=lm.font(12)).pack(pady=(0, lm.scaled(3)))
 
-        pw_frame = ttk.Frame(self)
-        pw_frame.pack(pady=lm.scaled(10), padx=lm.scaled(40), fill="x")
+        # Password field container with padding
+        pw_container = ttk.Frame(self)
+        pw_container.pack(pady=lm.scaled(10), padx=lm.scaled(40), fill="x")
 
+        # Inner frame for the password field with relative positioning
+        pw_frame = ttk.Frame(pw_container)
+        pw_frame.pack(fill="x")
+
+        # Password entry with right padding to make room for the icon
         self.password = ttk.Entry(pw_frame, font=lm.font(12), show="*")
-        self.password.pack(side="left", fill="x", expand=True, ipady=lm.scaled(6))
+        self.password.pack(fill="x", ipady=lm.scaled(6))
+        # Add right padding to make room for the eye icon
+        self.password.configure(style='Password.TEntry')
 
-        ttk.Button(
-            pw_frame, text="👁", width=4, bootstyle=INFO,
+        # Eye icon button positioned on top of the entry field (right side)
+        self.eye_btn = ttk.Button(
+            pw_frame, text="Show", bootstyle=INFO,
             command=self.toggle_password
-        ).pack(side="left", padx=lm.scaled(8))
+        )
+        # Place the button on the right side of the entry
+        self.eye_btn.place(relx=1.0, rely=0.5, anchor="e", x=-lm.scaled(5))
 
         self.password.bind("<FocusIn>", lambda e: self.open_keyboard(self.password))
 
@@ -856,11 +1205,17 @@ class LoginPage(ttk.Frame):
     def toggle_password(self):
         cur = self.password.cget("show")
         self.password.config(show="" if cur == "*" else "*")
+        
+    def _create_keyboard_if_needed(self):
+        if not self.keyboard:
+             self.keyboard = T9Keypad(self, None, self.close_keyboard, self.controller.lm)
 
     # Open keyboard
     def open_keyboard(self, entry):
-        self.close_keyboard()
-        self.keyboard = T9Keypad(self, entry, self.close_keyboard, self.controller.lm)
+        self._create_keyboard_if_needed()
+        self.keyboard.set_target(entry)
+        
+        # Only pack if not already visible (optional check, pack is idempotent but good practice)
         self.keyboard.pack(side="bottom", fill="x")
 
     # Close keyboard
@@ -869,6 +1224,8 @@ class LoginPage(ttk.Frame):
             self.keyboard.destroy()
             self.keyboard = None
 #--------------Error Page Class which can be reused for different types of errors (When there is an error in connecting to the WiFi network, data transfer etc.)           
+            self.keyboard.pack_forget()
+            
 class ErrorPage(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
@@ -884,7 +1241,7 @@ class ErrorPage(ttk.Frame):
             container,
             text="",
             font=lm.font(18),
-            foreground="white"
+            foreground="#020202",
         )
         self.title_label.pack(pady=(0, lm.scaled(10)))
 
@@ -892,7 +1249,7 @@ class ErrorPage(ttk.Frame):
             container,
             text="",
             font=lm.font(12),
-            foreground="white",
+            foreground="#020202",
             wraplength=lm.scaled(400),
             justify="center"
         )

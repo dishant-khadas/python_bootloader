@@ -1,3 +1,11 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
 venv/
 _pycache_/
 requirements.txt
@@ -9,3 +17,10 @@ __pycache__/gpio_control.cpython-313.pyc
 __pycache__/t9_keypad.cpython-313.pyc
 __pycache__/ui_utils.cpython-313.pyc
 __pycache__/wifi_utils.cpython-313.pyc
+
+# Env files
+.env
+
+# bin files
+temp_Encrypted.bin
+temp_Original.bin
