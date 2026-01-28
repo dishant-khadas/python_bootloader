@@ -7,6 +7,16 @@ __pycache__/
 # Virtual environment
 .venv/
 venv/
+_pycache_/
+requirements.txt
+__pycache__/bootloader_download.cpython-313.pyc
+__pycache__/decrypt_utils.cpython-313.pyc
+__pycache__/du_reader.cpython-313.pyc
+__pycache__/du_utils.cpython-313.pyc
+__pycache__/gpio_control.cpython-313.pyc
+__pycache__/t9_keypad.cpython-313.pyc
+__pycache__/ui_utils.cpython-313.pyc
+__pycache__/wifi_utils.cpython-313.pyc
 
 # Env files
 .env
