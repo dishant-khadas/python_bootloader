@@ -802,14 +802,6 @@ class ProgramPage(ttk.Frame):
         def ui_message(msg):
             print("STATUS:", msg)
 
-        def ui_success(data):
-            print("SUCCESS — DU List:", data)
-            messagebox.showinfo("DU Loaded", "DU Data Received")
-            # Save DU response for next page (file list)
-            self.controller.du_options = data["options"]
-            self.controller.is_encryption_enable = data["isEncryptionEnable"]
-            # TODO: Navigate to File Selection Page
-
         def ui_error(msg):
             print("ERROR:", msg)
             messagebox.showerror("Error", msg)
@@ -819,7 +811,7 @@ class ProgramPage(ttk.Frame):
             args=(
                 self.controller.token,  # auth token
                 ui_message,
-                ui_success,
+                self.ui_success,  # Use class method which navigates to FileSelectionPage
                 ui_error,
                 os.getenv("SERIAL_PORT", "/dev/ttyAMA0"),   # UART Port
                 115200
