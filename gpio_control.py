@@ -49,4 +49,3 @@ def turn_display_Off():
 
 
 
-turn_display_On();
