@@ -380,7 +380,7 @@ load_dotenv()
 from du_api import fetch_du_list
 
 # Configurable defaults
-DEFAULT_SERIAL_PORT = os.getenv("SERIAL_PORT", "/dev/ttyS0")
+DEFAULT_SERIAL_PORT = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
 DEFAULT_BAUDRATE = int(os.getenv("SERIAL_BAUD", "115200"))
 HANDSHAKE_TIMEOUT = 10  # seconds
 REQUIRED_HEX_LENGTH = 1024  # hex chars == 512 bytes

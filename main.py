@@ -821,7 +821,7 @@ class ProgramPage(ttk.Frame):
                 ui_message,
                 ui_success,
                 ui_error,
-                os.getenv("SERIAL_PORT", "/dev/ttyS0"),   # UART Port
+                os.getenv("SERIAL_PORT", "/dev/ttyAMA0"),   # UART Port
                 115200
             ),
             daemon=True
