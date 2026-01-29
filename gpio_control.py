@@ -48,3 +48,5 @@ def turn_display_Off():
     print("DISPLAY OFF")
 
 
+
+turn_display_On();

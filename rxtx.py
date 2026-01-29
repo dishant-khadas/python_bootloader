@@ -64,7 +64,7 @@ def test_serial_loopback(port='/dev/serial0', baudrate=9600):
             print("Serial port closed.")
 
 if __name__ == "__main__":
-    # Allow user to specify port via argument, e.g., python3 rxtx.py /dev/ttyAMA0
+    # Allow user to specify port via argument, e.g., python3 rxtx.py /dev/ttyS0
     target_port = '/dev/serial0'
     if len(sys.argv) > 1:
         target_port = sys.argv[1]
