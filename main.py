@@ -244,7 +244,7 @@ class WifiListPage(ttk.Frame):
         self.canvas.bind("<Configure>", self._on_canvas_resize)
         self.list_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         ttk.Label(self, text="Available Networks", font=lm.font(24)).pack(pady=lm.scaled(20))
         
         # Listbox with better styling
@@ -331,7 +331,7 @@ class WifiListPage(ttk.Frame):
     # and was replaced by a new load_list function
     #def load_list(self, ssids):
         #self.listbox.delete(0, tk.END)
-        ).pack(pady=lm.scaled(40))
+        # ).pack(pady=lm.scaled(40))
 
     def load_list(self, ssids):
         self.listbox.delete(0, tk.END)
@@ -339,7 +339,7 @@ class WifiListPage(ttk.Frame):
         #for s in (ssids):
             # Add WiFi icon and padding
             #self.listbox.insert(tk.END, f"\n\n  📶  {s}\n\n")
-            self.listbox.insert(tk.END, f"  >  {s}")
+            # self.listbox.insert(tk.END, f"  >  {s}")
             # Add spacing between networks (except after last one)
     # UPDATED load_list function for fetchimg and rendering the WiFi Networks
     def load_list(self, ssids):
