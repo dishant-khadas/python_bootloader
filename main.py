@@ -796,15 +796,27 @@ class ProgramPage(ttk.Frame):
     def start_program_logic(self):
         print("Starting Program Logic - Fetching from Server")
         
+        # Show DownloadPage (Please Wait screen) immediately
+        dp = self.controller.frames[DownloadPage]
+        dp.file_id = None  # Generic loading mode - no file download yet
+        dp.status_label.config(text="Please Wait...")
+        self.controller.show_frame(DownloadPage)
+        
         # read_du_from_serial
         from du_reader import read_du_from_serial
 
         def ui_message(msg):
             print("STATUS:", msg)
+            self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def ui_error(msg):
             print("ERROR:", msg)
-            messagebox.showerror("Error", msg)
+            # Show Error Page when no data received or any error occurs
+            self.controller.after(0, lambda: self.controller.show_error(
+                "Operation Failed", 
+                msg, 
+                ProgramPage
+            ))
 
         threading.Thread(
             target=read_du_from_serial,
