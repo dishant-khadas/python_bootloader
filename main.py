@@ -2332,8 +2332,12 @@ class FirmwareUpdatePage(ttk.Frame):
         from gpio_control import turn_display_Off
         
         try:
-            # Get path to btl_host.py script
-            btl_host_path = os.getenv("BTL_HOST_PATH", "/home/dishant/btl_host.py")
+            # # Get path to btl_host.py script
+            # btl_host_path = os.getenv("BTL_HOST_PATH", "/home/dishant/btl_host.py")
+
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            default_btl_path = os.path.join(script_dir, "btl_host.py")
+            btl_host_path = os.getenv("BTL_HOST_PATH", default_btl_path)
             python_path = os.getenv("PYTHON_PATH", "python3")
             serial_port = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
             
