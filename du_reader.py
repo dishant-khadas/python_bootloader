@@ -223,9 +223,20 @@ def read_du_from_serial(
                     
                     if little_end == crc_recv:
                         is_encryption_enable = True
-                        # Extract encryption key from bytes 395-427 (32 bytes)
-                        encryption_key = buffer_bytes[ENCRYPTED_KEY_START:ENCRYPTED_KEY_END]
-                        print(f"Extracted encryption key (hex): {encryption_key.hex()}")
+                        # Extract encryption key from bytes 395-427 (32 bytes) - this key is encrypted
+                        encrypted_key_bytes = buffer_bytes[ENCRYPTED_KEY_START:ENCRYPTED_KEY_END]
+                        print(f"Extracted encrypted key (hex): {encrypted_key_bytes.hex()}")
+                        
+                        # Decrypt the key using AES-256-CBC with keys from encKey.py
+                        try:
+                            decrypted_key_hex = decrypt_hex_block(encrypted_key_bytes.hex())
+                            encryption_key = bytes.fromhex(decrypted_key_hex)
+                            print(f"Decrypted encryption key (hex): {encryption_key.hex()}")
+                        except Exception as decrypt_err:
+                            print(f"Warning: Failed to decrypt encryption key: {decrypt_err}")
+                            # Fallback to using the raw extracted key
+                            encryption_key = encrypted_key_bytes
+                        
                         validated = True
                     else:
                         callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
