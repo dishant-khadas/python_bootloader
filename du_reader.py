@@ -217,8 +217,7 @@ def read_du_from_serial(
                     crc_recv = buffer_bytes[510:512].hex()
                     
                     if little_end == crc_recv:
-                        is_encryption_enable = get_encryption_flag(firmware_v1, firmware_v2)
-                        validated = True
+                        is_encryption_enable = True
                     else:
                         callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
                         return
