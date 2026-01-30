@@ -866,8 +866,11 @@ class ProgramPage(ttk.Frame):
         is_enc = data.get("isEncryptionEnable", False)
         du_num = data.get("duNumber")
         disp_num = data.get("displayNumber")
+        enc_key = data.get("encryptionKey")  # 32-byte key or None
 
         print("SUCCESS — DU List:", options)
+        if enc_key:
+            print(f"Encryption key stored (hex): {enc_key.hex()}")
         
         # Save info for next page
         self.controller.du_options = options # The options from API (fileName, fileId etc)
@@ -876,6 +879,7 @@ class ProgramPage(ttk.Frame):
         self.controller.du_options["displayNumber"] = disp_num
         
         self.controller.is_encryption_enable = is_enc
+        self.controller.encryption_key = enc_key  # Store the 32-byte encryption key
         
         self.controller.show_frame(FileSelectionPage)
 

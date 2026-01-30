@@ -19,6 +19,10 @@ DEFAULT_BAUDRATE = int(os.getenv("SERIAL_BAUD", "115200"))
 HANDSHAKE_TIMEOUT = 10  # seconds
 REQUIRED_HEX_LENGTH = 1024  # hex chars == 512 bytes
 
+# Encryption key location in the 512-byte data (indices 395 to 427, 32 bytes)
+ENCRYPTED_KEY_START = 395
+ENCRYPTED_KEY_END = 427  # exclusive, so bytes[395:427] gives 32 bytes
+
 
 def get_encryption_flag(fw1: int, fw2: int) -> bool:
     """
@@ -91,6 +95,7 @@ def read_du_from_serial(
         received_hex = ""
         start_time = time.time()
         is_encryption_enable = False
+        encryption_key = None  # Will store the 32-byte encryption key if data is encrypted
         SERIAL_TIMEOUT = 15  # 15 seconds timeout
 
         callback_ui_message("Waiting for DU data...")
@@ -218,6 +223,9 @@ def read_du_from_serial(
                     
                     if little_end == crc_recv:
                         is_encryption_enable = True
+                        # Extract encryption key from bytes 395-427 (32 bytes)
+                        encryption_key = buffer_bytes[ENCRYPTED_KEY_START:ENCRYPTED_KEY_END]
+                        print(f"Extracted encryption key (hex): {encryption_key.hex()}")
                         validated = True
                     else:
                         callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
@@ -289,7 +297,8 @@ def read_du_from_serial(
             "duNumber": du_number,
             "displayNumber": display_number,
             "options": options,
-            "isEncryptionEnable": is_encryption_enable
+            "isEncryptionEnable": is_encryption_enable,
+            "encryptionKey": encryption_key  # 32-byte key or None
         })
         return
 

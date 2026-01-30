@@ -139,7 +139,8 @@ def download_and_flash(file_id: str,
 
         # 4) Prepare final hash packet (formatHashTo64Bytes)
         final_packet = format_hash_to_64_bytes(original_hash)
-        print("Final packet (hex) dishant: ", final_packet.hex())
+        print("Final packet (hex) dishant1: ", final_packet)
+        print("Final packet (hex) dishant2: ", final_packet.hex())
         if final_packet is False:
             callback_error("Failed to format final packet")
             return False
