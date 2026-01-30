@@ -180,18 +180,18 @@ def read_du_from_serial(
             little_end = calculate_little_endian(crc_calc)
             crc_recv = buffer_bytes[510:512].hex()
             
-            # if little_end == crc_recv:
-            #     is_encryption_enable = get_encryption_flag(firmware_v1, firmware_v2)
-            #     validated = True
-            # else:
-            #     callback_ui_message(f"CRC Mismatch: Calc {little_end} vs Recv {crc_recv}")
-            #     try:
-            #         turn_BL_Detect_Low()
-            #         turn_display_Off()
-            #     except:
-            #         pass
-            #     callback_ui_error("E52 - Invalid Data Received")
-            #     return
+            if little_end == crc_recv:
+                is_encryption_enable = get_encryption_flag(firmware_v1, firmware_v2)
+                validated = True
+            else:
+                callback_ui_message(f"CRC Mismatch: Calc {little_end} vs Recv {crc_recv}")
+                try:
+                    turn_BL_Detect_Low()
+                    turn_display_Off()
+                except:
+                    pass
+                callback_ui_error("E52 - Invalid Data Received")
+                return
 
         elif SOP != "2a" and EOP != "3c":
             # encrypted
@@ -218,6 +218,7 @@ def read_du_from_serial(
                     
                     if little_end == crc_recv:
                         is_encryption_enable = True
+                        validated = True
                     else:
                         callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
                         return
