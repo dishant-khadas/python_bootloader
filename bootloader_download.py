@@ -138,12 +138,14 @@ def download_and_flash(file_id: str,
         callback_message(" Please Wait...")
 
         # 4) Prepare final hash packet (formatHashTo64Bytes)
-        final_packet = format_hash_to_64_bytes(calc_orig_hash)
+        final_packet = format_hash_to_64_bytes(original_hash)
+        print("Final packet (hex) dishant: ", final_packet.hex())
         if final_packet is False:
             callback_error("Failed to format final packet")
             return False
 
         # If encryption is enabled for the DU, encrypt final packet before sending (placeholder)
+        print("is enc enabled : ", is_encryption_enable)
         if is_encryption_enable:
             callback_message("Encrypting final packet...")
             try:
@@ -173,6 +175,8 @@ def download_and_flash(file_id: str,
             return False
 
         try:
+            print("Writing final packet to serial...")
+            print("Final packet (hex) : ", final_packet.hex())
             ser.write(final_packet)
             ser.flush()
             callback_message("Final packet written to serial. Closing port...")

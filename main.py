@@ -842,7 +842,7 @@ class ProgramPage(ttk.Frame):
              self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def on_ui_success(data):
-             # data = {duNumber, displayNumber, options, isEncryptionEnable}
+            #  data = {duNumber, displayNumber, options, isEncryptionEnable}
              self.controller.after(0, lambda: self.ui_success(data))
 
         def on_ui_error(err_msg):
