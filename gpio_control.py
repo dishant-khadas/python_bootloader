@@ -6,7 +6,9 @@ IS_WINDOWS = platform.system() == "Windows"
 
 # BL_DETECT_Pin = int(os.getenv("BL_DETECT_PIN", "26"))      # example default
 BL_DETECT_Pin = 17
-DISPLAY_ON_PIN = 27
+
+# DISPLAY_ON_PIN = 27
+DISPLAY_ON_PIN = 4
 
 # DISPLAY_ON_PIN = int(os.getenv("DISPLAY_ON_PIN", "19"))    # example default
 
