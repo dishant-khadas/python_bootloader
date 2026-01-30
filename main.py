@@ -70,7 +70,7 @@
 #         self.container.pack(fill="both", expand=True)
 
 #         self.frames = {}
-#         for Page in (SplashScreen, ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, FileSelectionPage, DownloadPage, ErrorPage):
+#         for Page in (SplashScreen, ScanPage, WifiListPage, WifiPasswordPage, WifiConnectingPage, LoginPage, ProgramPage, FileSelectionPage, DownloadPage, FirmwareUpdatePage, ErrorPage):
 #            frame = Page(parent=self.container, controller=self)
 #            frame.place(relwidth=1, relheight=1)
 #            self.frames[Page] = frame
@@ -933,6 +933,7 @@
 #         device_id = "41999990" # Hardcoded or from env
 
 #         is_enc = getattr(self.controller, "is_encryption_enable", False)
+#         enc_key = getattr(self.controller, "encryption_key", None)  # Get the 32-byte key
 
 #         def on_msg(text):
 #             self.controller.after(0, lambda: self.status_label.config(text=text))
@@ -945,16 +946,28 @@
 
 #         def on_serialPort(err_text):
 #             self.controller.after(0, lambda: self.serialPort_error(f"Serial Port Error: {err_text}"))
+        
+#         def on_firmware_update(output_path, encryption_key_hex, is_enc_flag):
+#             # Navigate to FirmwareUpdatePage and start btl_host.py
+#             self.controller.after(0, lambda: self.start_firmware_update(output_path, encryption_key_hex, is_enc_flag))
 
 #         download_and_flash(
 #             file_id=file_id,
 #             token=token,
 #             device_id=device_id,
 #             is_encryption_enable=is_enc,
+#             encryption_key=enc_key,
 #             callback_message=on_msg,
 #             callback_success=on_success,
-#             callback_error=on_serialPort
+#             callback_error=on_serialPort,
+#             callback_firmware_update=on_firmware_update
 #         )
+    
+#     def start_firmware_update(self, output_path, encryption_key_hex, is_enc_flag):
+#         """Navigate to FirmwareUpdatePage and start btl_host.py"""
+#         firmware_page = self.controller.frames[FirmwareUpdatePage]
+#         firmware_page.set_params(output_path, encryption_key_hex, is_enc_flag)
+#         self.controller.show_frame(FirmwareUpdatePage)
 
 #     def download_success(self, res):
 #         self.progress.stop()
@@ -976,9 +989,139 @@
 #         self.progress.stop()
 #         self.status_label.config(text="Serial Port Error", foreground="red")
 #         self.controller.show_error("Serial Port Error", err_text, return_frame=LoginPage)
+
+
+# class FirmwareUpdatePage(ttk.Frame):
+#     """Page that displays 'Updating Firmware' and runs btl_host.py in background"""
+    
+#     def __init__(self, parent, controller):
+#         super().__init__(parent)
+#         self.controller = controller
+#         lm = controller.lm
         
+#         # Parameters for btl_host.py
+#         self.output_path = None
+#         self.encryption_key_hex = ""
+#         self.is_enc_flag = "0"
+#         self.process = None
+        
+#         # Center Container
+#         container = ttk.Frame(self)
+#         container.place(relx=0.5, rely=0.5, anchor="center")
+        
+#         # Title
+#         ttk.Label(container, text="Updating Firmware", font=lm.font(24)).pack(pady=lm.scaled(30))
+        
+#         # Progress bar
+#         self.progress = ttk.Progressbar(container, mode='indeterminate', bootstyle=INFO, length=lm.scaled(300))
+#         self.progress.pack(pady=lm.scaled(20))
+        
+#         # Status Label
+#         self.status_label = ttk.Label(container, text="Please wait...", font=lm.font(14), bootstyle=WARNING, wraplength=lm.scaled(400), justify="center")
+#         self.status_label.pack(pady=lm.scaled(20))
+    
+#     def set_params(self, output_path: str, encryption_key_hex: str, is_enc_flag: str):
+#         """Set parameters for btl_host.py before showing this page"""
+#         self.output_path = output_path
+#         self.encryption_key_hex = encryption_key_hex
+#         self.is_enc_flag = is_enc_flag
+    
+#     def on_show(self):
+#         """Called when the page is shown - starts the firmware update process"""
+#         self.progress.start(10)
+#         self.status_label.config(text="Starting firmware update...")
+        
+#         # Start btl_host.py in a separate thread
+#         threading.Thread(target=self.run_btl_host, daemon=True).start()
+    
+#     def run_btl_host(self):
+#         """Run btl_host.py with the specified arguments"""
+#         import subprocess
+#         from gpio_control import turn_display_Off
+        
+#         try:
+#             # # Get path to btl_host.py script
+#             # btl_host_path = os.getenv("BTL_HOST_PATH", "/home/dishant/btl_host.py")
 
-
+#             script_dir = os.path.dirname(os.path.abspath(__file__))
+#             default_btl_path = os.path.join(script_dir, "btl_host.py")
+#             btl_host_path = os.getenv("BTL_HOST_PATH", default_btl_path)
+#             python_path = os.getenv("PYTHON_PATH", "python3")
+#             serial_port = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
+            
+#             self.controller.after(0, lambda: self.status_label.config(text="Running btl_host.py..."))
+            
+#             # Build command arguments matching JS implementation
+#             cmd = [
+#                 python_path,
+#                 btl_host_path,
+#                 "-v",
+#                 "-i", serial_port,
+#                 "-d", "pic32mz",
+#                 "-a", "0x9D000000",
+#                 self.encryption_key_hex,
+#                 self.is_enc_flag,
+#                 "-f", self.output_path
+#             ]
+            
+#             print(f"[FIRMWARE UPDATE] Running command: {' '.join(cmd)}")
+            
+#             # Run the process and capture output
+#             self.process = subprocess.Popen(
+#                 cmd,
+#                 stdout=subprocess.PIPE,
+#                 stderr=subprocess.PIPE,
+#                 text=True
+#             )
+            
+#             # Read stdout in real-time
+#             for line in iter(self.process.stdout.readline, ''):
+#                 if line:
+#                     print(f"[BTL_HOST STDOUT]: {line.strip()}")
+#                     self.controller.after(0, lambda l=line.strip(): self.status_label.config(text=l))
+            
+#             # Wait for process to complete
+#             self.process.wait()
+#             return_code = self.process.returncode
+            
+#             print(f"[FIRMWARE UPDATE] Process exited with code {return_code}")
+            
+#             # Wait 3 seconds then turn off display (as in JS implementation)
+#             time.sleep(3)
+#             try:
+#                 turn_display_Off()
+#             except Exception as e:
+#                 print(f"Warning: turn_display_Off failed: {e}")
+            
+#             # Update UI based on result
+#             if return_code == 0:
+#                 self.controller.after(0, self.on_update_success)
+#             else:
+#                 stderr_output = self.process.stderr.read()
+#                 print(f"[BTL_HOST STDERR]: {stderr_output}")
+#                 self.controller.after(0, lambda: self.on_update_error(f"btl_host.py failed with code {return_code}"))
+                
+#         except FileNotFoundError:
+#             error_msg = f"btl_host.py not found at {btl_host_path}"
+#             print(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
+#             self.controller.after(0, lambda: self.on_update_error(error_msg))
+#         except Exception as e:
+#             error_msg = f"Firmware update error: {e}"
+#             print(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
+#             self.controller.after(0, lambda: self.on_update_error(error_msg))
+    
+#     def on_update_success(self):
+#         """Called when firmware update completes successfully"""
+#         self.progress.stop()
+#         self.status_label.config(text="Firmware updated successfully!", foreground="green")
+#         messagebox.showinfo("Success", "Firmware updated successfully!")
+#         self.controller.show_frame(ProgramPage)
+    
+#     def on_update_error(self, error_msg):
+#         """Called when firmware update fails"""
+#         self.progress.stop()
+#         self.status_label.config(text="Update failed", foreground="red")
+#         self.controller.show_error("Firmware Update Failed", error_msg, return_frame=ProgramPage)
 
 
 # class FileSelectionPage(ttk.Frame):
@@ -2102,12 +2245,25 @@ class ProgramPage(ttk.Frame):
             self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def ui_error(msg):
+            from gpio_control import turn_BL_Detect_Low, turn_display_Off
             print("ERROR:", msg)
+            
+            # Call GPIO functions on error
+            try:
+                turn_BL_Detect_Low()
+            except Exception as e:
+                print(f"Warning: turn_BL_Detect_Low failed: {e}")
+            
+            try:
+                turn_display_Off()
+            except Exception as e:
+                print(f"Warning: turn_display_Off failed: {e}")
+            
             # Show Error Page when no data received or any error occurs
             self.controller.after(0, lambda: self.controller.show_error(
                 "Operation Failed", 
                 msg, 
-                ProgramPage
+                LoginPage
             ))
 
         threading.Thread(
@@ -2271,15 +2427,43 @@ class DownloadPage(ttk.Frame):
         self.controller.show_frame(ProgramPage)
 
     def download_error(self, err_text):
+        from gpio_control import turn_BL_Detect_Low, turn_display_Off
+        
         self.progress.stop()
         self.status_label.config(text="Error occurred", foreground="red")
+        
+        # Call GPIO functions on error
+        try:
+            turn_BL_Detect_Low()
+        except Exception as e:
+            print(f"Warning: turn_BL_Detect_Low failed: {e}")
+        
+        try:
+            turn_display_Off()
+        except Exception as e:
+            print(f"Warning: turn_display_Off failed: {e}")
+        
         # Redirect to ErrorPage, which usually goes BACK. 
         # User requested: "redirect to login page" from error page
         self.controller.show_error("Download Failed", err_text, return_frame=LoginPage)
 
     def serialPort_error(self, err_text):
+        from gpio_control import turn_BL_Detect_Low, turn_display_Off
+        
         self.progress.stop()
         self.status_label.config(text="Serial Port Error", foreground="red")
+        
+        # Call GPIO functions on error
+        try:
+            turn_BL_Detect_Low()
+        except Exception as e:
+            print(f"Warning: turn_BL_Detect_Low failed: {e}")
+        
+        try:
+            turn_display_Off()
+        except Exception as e:
+            print(f"Warning: turn_display_Off failed: {e}")
+        
         self.controller.show_error("Serial Port Error", err_text, return_frame=LoginPage)
 
 
@@ -2407,13 +2591,27 @@ class FirmwareUpdatePage(ttk.Frame):
         self.progress.stop()
         self.status_label.config(text="Firmware updated successfully!", foreground="green")
         messagebox.showinfo("Success", "Firmware updated successfully!")
-        self.controller.show_frame(ProgramPage)
+        self.controller.show_frame(LoginPage)
     
     def on_update_error(self, error_msg):
         """Called when firmware update fails"""
+        from gpio_control import turn_BL_Detect_Low, turn_display_Off
+        
         self.progress.stop()
         self.status_label.config(text="Update failed", foreground="red")
-        self.controller.show_error("Firmware Update Failed", error_msg, return_frame=ProgramPage)
+        
+        # Call GPIO functions on error
+        try:
+            turn_BL_Detect_Low()
+        except Exception as e:
+            print(f"Warning: turn_BL_Detect_Low failed: {e}")
+        
+        try:
+            turn_display_Off()
+        except Exception as e:
+            print(f"Warning: turn_display_Off failed: {e}")
+        
+        self.controller.show_error("Firmware Update Failed", error_msg, return_frame=LoginPage)
 
 
 class FileSelectionPage(ttk.Frame):
