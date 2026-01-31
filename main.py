@@ -1164,9 +1164,8 @@ class FirmwareUpdatePage(ttk.Frame):
         """Called when firmware update completes successfully"""
         self.progress.stop()
         self.status_label.config(text="Firmware updated successfully!", foreground="green")
-        # messagebox.showinfo("Success", "Firmware updated successfully!")
-        time.sleep(3)
-        self.controller.show_frame(LoginPage)
+        # Wait 3 seconds (3000ms) then redirect to LoginPage - using after() to not block UI
+        self.controller.after(3000, lambda: self.controller.show_frame(LoginPage))
     
     def on_update_error(self, error_msg):
         """Called when firmware update fails"""
