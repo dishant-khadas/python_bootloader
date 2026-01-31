@@ -921,8 +921,8 @@ class DownloadPage(ttk.Frame):
         self.progress.pack(pady=lm.scaled(20))
         self.progress.start(10)
 
-        # Status Label
-        self.status_label = ttk.Label(container, text="Initializing...", font=lm.font(14), bootstyle=WARNING, wraplength=lm.scaled(400), justify="center")
+        # Status Label (larger font for better visibility, black text)
+        self.status_label = ttk.Label(container, text="Initializing...", font=lm.font(16), foreground="black", wraplength=lm.scaled(400), justify="center")
         self.status_label.pack(pady=lm.scaled(20))
 
     def on_show(self):
