@@ -1070,7 +1070,7 @@ class FirmwareUpdatePage(ttk.Frame):
     def on_show(self):
         """Called when the page is shown - starts the firmware update process"""
         self.progress.start(10)
-        self.status_label.config(text="Starting firmware update...")
+        # self.status_label.config(text="Starting firmware update...")
         
         # Start btl_host.py in a separate thread
         threading.Thread(target=self.run_btl_host, daemon=True).start()
@@ -1165,7 +1165,6 @@ class FirmwareUpdatePage(ttk.Frame):
         self.progress.stop()
         self.status_label.config(text="Firmware updated successfully!", foreground="green")
         # messagebox.showinfo("Success", "Firmware updated successfully!")
-        # sleep(3)
         time.sleep(3)
         self.controller.show_frame(LoginPage)
     

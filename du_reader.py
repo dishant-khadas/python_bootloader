@@ -289,7 +289,7 @@ def read_du_from_serial(
         callback_ui_message(f"DU detected: {du_number}, Display: {display_number}")
 
         # Now call DU_Update API to get file list
-        callback_ui_message("Querying server for DU update list...")
+        # callback_ui_message("Querying server for DU update list...")
         
         success, options_or_msg, _ = fetch_du_list(token, du_number, display_number)
         
