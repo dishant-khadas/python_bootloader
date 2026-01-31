@@ -24,7 +24,7 @@ import time
 class App(ttk.Window):
     def __init__(self):
         super().__init__(themename="litera")
-        self.title("Setup Wizard")
+        self.title("CZAR BOOTLOADER")
         # self.attributes("-fullscreen", True)
 
         # Phone size simulation
