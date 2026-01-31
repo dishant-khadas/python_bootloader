@@ -129,12 +129,26 @@ def connect_wifi(ssid, password):
         return False
 
 def check_internet():
-    if IS_WINDOWS:
-        try:
-            subprocess.check_output("ping -n 1 8.8.8.8", shell=True)
-            return True
-        except:
-            return False
+    """Check if internet is available by pinging Google DNS"""
+    try:
+        if IS_WINDOWS:
+            # Windows ping uses -n for count
+            result = subprocess.run(
+                ["ping", "-n", "1", "-w", "3000", "8.8.8.8"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        else:
+            # Linux ping uses -c for count, -W for timeout in seconds
+            result = subprocess.run(
+                ["ping", "-c", "1", "-W", "3", "8.8.8.8"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        return result.returncode == 0
+    except Exception:
+        return False
+
 def disconnect_wifi()-> None:
     try:
         if platform.system()=="Windows":
