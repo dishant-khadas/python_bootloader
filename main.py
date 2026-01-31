@@ -75,13 +75,35 @@ class App(ttk.Window):
            frame.place(relwidth=1, relheight=1)
            self.frames[Page] = frame
 
+        # Global DU info label at top-right (visible on all pages after DU is detected)
+        self.du_info_label = ttk.Label(
+            self, 
+            text="", 
+            font=self.lm.font(10), 
+            foreground="#666666",
+            background="#ffffff"
+        )
+        self.du_info_label.place(relx=0.98, rely=0.02, anchor="ne")
+        self.du_info_label.lower()  # Start hidden (behind other widgets)
 
         # Show splash screen first
         self.show_frame(SplashScreen)
 
+    def update_du_info(self, du_number, display_number):
+        """Update the global DU info label shown at top-right of all pages"""
+        if du_number and display_number:
+            self.du_info_label.config(text=f"DU: {du_number} | Display: {display_number}")
+            self.du_info_label.lift()  # Make visible above other widgets
+        else:
+            self.du_info_label.config(text="")
+            self.du_info_label.lower()
+
     def show_frame(self, page):
         frame = self.frames[page]
         frame.tkraise()
+        # Keep DU info label on top if it has content
+        if self.du_info_label.cget("text"):
+            self.du_info_label.lift()
         # Optionally call a method like on_show if it exists
         if hasattr(frame, "on_show"):
             frame.on_show()
@@ -894,7 +916,22 @@ class ProgramPage(ttk.Frame):
         self.controller.is_encryption_enable = is_enc
         self.controller.encryption_key = enc_key  # Store the 32-byte encryption key
         
-        self.controller.show_frame(FileSelectionPage)
+        # Update global DU info display
+        self.controller.update_du_info(du_num, disp_num)
+        
+        # Check if only one file - auto-download without showing FileSelectionPage
+        file_names = options.get("fileName", [])
+        file_ids = options.get("fileId", [])
+        
+        if len(file_names) == 1 and len(file_ids) == 1:
+            # Only one file - bypass FileSelectionPage and auto-download
+            print(f"Auto-downloading single file: {file_names[0]}")
+            download_page = self.controller.frames[DownloadPage]
+            download_page.file_id = file_ids[0]
+            self.controller.show_frame(DownloadPage)
+        else:
+            # Multiple files - show FileSelectionPage
+            self.controller.show_frame(FileSelectionPage)
 
     def ui_error(self, msg):
         print("ERROR:", msg)
@@ -1367,6 +1404,10 @@ class LoginPage(ttk.Frame):
             command=lambda: controller.show_frame(ScanPage)
         )
         # will be shown later using show_change_wifi_button()
+
+    def on_show(self):
+        """Reset DU info when returning to login page"""
+        self.controller.update_du_info(None, None)
 
     def start_login(self):
         phone = self.phone.get().strip()
