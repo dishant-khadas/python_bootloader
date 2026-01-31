@@ -157,24 +157,24 @@ def wait_for_wifi_connected(ssid: str, timeout: int = 15) -> bool:
                     errors="ignore"
                 ).lower()
                 
-            
                 if "state" in out and "connected" in out:
                     if "ssid" in out and target in out:
                         return True
                     
-                    if "state" in out and "disconnected" in out:
-                        return False
-                    
-                else:
-                    out= subprocess.check_output(
-                        ["nmcli","-t","-f","ACTIVE,SSID","dev","wifi"],
-                        text=True,
-                        errors="ignore"
-                    ).strip()
-                    for line in out.splitlines():
-                        if line.startswith("yes:"):
-                            current_ssid = line.split("yes:", 1)[1].strip().lower()
-                            return current_ssid == target
+                if "state" in out and "disconnected" in out:
+                    return False
+            else:
+                # Linux/Raspberry Pi - use nmcli
+                out = subprocess.check_output(
+                    ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"],
+                    text=True,
+                    errors="ignore"
+                ).strip()
+                for line in out.splitlines():
+                    if line.startswith("yes:"):
+                        current_ssid = line.split("yes:", 1)[1].strip().lower()
+                        if current_ssid == target:
+                            return True
         except Exception:
             pass
         
