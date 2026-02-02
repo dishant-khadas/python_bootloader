@@ -9,7 +9,7 @@ API_URL = "http://192.168.1.171:3000/api/logs/data-log"
 written_log = False
 next_serial_number = 1
 get_ip_script_path=""
-csvfile_path = ""
+csvfile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
 
 
 
