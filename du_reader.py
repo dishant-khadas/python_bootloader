@@ -197,6 +197,7 @@ def read_du_from_serial(
                     turn_display_Off()
                 except:
                     pass
+                write_log("E-42", "Invalid Data Received", "Failed", f"CRC Mismatch: Calculated {little_end} vs Received {crc_recv}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
                 callback_ui_error("E52 - Invalid Data Received")
                 return
 
@@ -241,9 +242,11 @@ def read_du_from_serial(
                         
                         validated = True
                     else:
+                        write_log("E-42", "Invalid Data Received", "Failed", f"CRC fail after decrypt: Calculated {little_end} vs Received {crc_recv}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
                         callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
                         return
                 else:
+                    write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
                     callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
                     return
 
@@ -252,6 +255,7 @@ def read_du_from_serial(
                     turn_BL_Detect_Low()
                 except:
                     pass
+                write_log("E-42", "Invalid Data Received", "Failed", f"Decrypt failed: {e}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
                 callback_ui_error(f"E52 - Decrypt failed: {e}")
                 return
 
@@ -259,6 +263,7 @@ def read_du_from_serial(
             # Case where one matches and other doesn't (SOP=2a but EOP!=3c, etc.)
             callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
             turn_BL_Detect_Low()
+            write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
             callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
             return
 
@@ -267,6 +272,7 @@ def read_du_from_serial(
                 turn_BL_Detect_Low()
             except:
                 pass
+            write_log("E-42", "Invalid Data Received", "Failed", "Verification Failed - Data could not be validated", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
             callback_ui_error("E52 - Verification Failed")
             return
 
