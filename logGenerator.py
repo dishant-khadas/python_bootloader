@@ -1,15 +1,27 @@
 import os
 import csv
 import datetime
-import subprocess
+import socket
 import requests
 
 # API_URL = f"{os.getenv('SERVER_URL')}api/logs/data-log"
 API_URL = "http://192.168.1.171:3000/api/logs/data-log"
 written_log = False
 next_serial_number = 1
-get_ip_script_path=""
 csvfile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
+
+
+def get_device_ip():
+    """Get the device's local IP address using socket connection."""
+    try:
+        # Create a socket and connect to an external address (doesn't actually send data)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "UNKNOWN"
 
 
 
@@ -91,13 +103,7 @@ def write_log(
         return
 
     # ---- Get IP ----
-    try:
-        ip = subprocess.check_output(
-            ["python3", get_ip_script_path],
-            text=True
-        ).strip()
-    except Exception:
-        ip = "UNKNOWN"
+    ip = get_device_ip()
 
     # ---- Log ID ----
     logID = f"{device_id}_{year-2000}{month}{day}{hours}{minutes}{seconds}_{next_serial_number}"

@@ -1007,6 +1007,9 @@ class DownloadPage(ttk.Frame):
             device_id=device_id,
             is_encryption_enable=is_enc,
             encryption_key=enc_key,
+            phoneNo=getattr(self.controller, "phone", ""),
+            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
+            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
             callback_message=on_msg,
             callback_success=on_success,
             callback_error=on_serialPort,
@@ -1448,6 +1451,7 @@ class LoginPage(ttk.Frame):
 
         # Save token globally on controller
         self.controller.token = token
+        self.controller.phone = phone  # Save phone number for logging
         self.controller.after(
             0,
                 lambda: self.controller.show_frame(ProgramPage)
