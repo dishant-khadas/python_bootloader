@@ -4,7 +4,8 @@ import datetime
 import subprocess
 import requests
 
-API_URL = f"{os.getenv('SERVER_URL')}api/logs/data-log"
+# API_URL = f"{os.getenv('SERVER_URL')}api/logs/data-log"
+API_URL = "http://192.168.1.171:3000/api/logs/data-log"
 written_log = False
 next_serial_number = 1
 get_ip_script_path=""
@@ -15,6 +16,7 @@ csvfile_path = ""
 
 
 def generateLog(errorCode, errorName, payload):
+    print("Generate log function called!")
     """
     Sends log payload to Node.js server
     """
@@ -115,18 +117,6 @@ def write_log(
         description,
         data_sent,
     ]
-
-    try:
-        with open(csvfile_path, "a", newline="") as f:
-            csv.writer(f).writerow(csv_row)
-        print("File has been written")
-    except Exception as e:
-        print("E43 - Error writing Log:", e)
-        return
-
-    written_log = True
-
-    # ---- Payload for API ----
     log_payload = {
         "Log_ID": logID,
         "phoneNo": phoneNo,
@@ -139,6 +129,18 @@ def write_log(
         "Result": result,
         "Error_Description": description,
     }
+    try:
+        with open(csvfile_path, "a", newline="") as f:
+            csv.writer(f).writerow(csv_row)
+        print("File has been written")
+    except Exception as e:
+        print("E43 - Error writing Log:", e)
 
-    # ---- Send to Node.js server ----
-    generateLog(errorCode, errorName, log_payload)
+        # ---- Send to Node.js server ----
+        generateLog(errorCode, errorName, log_payload)
+        return
+
+    written_log = True
+
+    # ---- Payload for API ----
+
