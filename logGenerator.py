@@ -2,22 +2,60 @@ import os
 import csv
 import datetime
 import subprocess
+import requests
 
+API_URL = f"{os.getenv('SERVER_URL')}api/logs/data-log"
 written_log = False
 next_serial_number = 1
+get_ip_script_path=""
+csvfile_path = ""
+
+
+
+
+
+def generateLog(errorCode, errorName, payload):
+    """
+    Sends log payload to Node.js server
+    """
+
+    request_payload = {
+        "errorCode": errorCode,
+        "errorName": errorName,
+        "logData": payload
+    }
+
+    try:
+        res = requests.post(
+            API_URL,
+            json=request_payload,
+            timeout=10
+        )
+
+        print("[LOG API] Status Code:", res.status_code)
+        print("[LOG API] Response:", res.text)
+
+    except requests.exceptions.Timeout:
+        print("[LOG API] Request timed out")
+
+    except requests.exceptions.ConnectionError:
+        print("[LOG API] Server unreachable")
+
+    except Exception as e:
+        print("[LOG API] Unexpected error:", str(e))
+
+
 
 def write_log(
     errorCode,
     errorName,
     result,
     description,
-    csvfile_path,
     device_id,
     phoneNo,
     duNumber,
     displayNumber,
     fileName,
-    get_ip_script_path
 ):
     global written_log, next_serial_number
 

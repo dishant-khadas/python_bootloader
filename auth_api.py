@@ -1,5 +1,6 @@
 import os
 import requests
+from logGenerator import write_log
 
 API_URL = "https://bootloader.czarmetricsystem.com/api/auth/serviceEngineer/phonelogin"
 
@@ -35,6 +36,7 @@ def login_api(phone, password):
                 return True, data["token"]
 
         print("Login Failed")
+        write_log("E-51", "Login Failed", "Failed", "Invalid Credentials", device_id, phone, "", "", "")
         return False, None
 
     except Exception as e:
