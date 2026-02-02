@@ -848,7 +848,7 @@ class ProgramPage(ttk.Frame):
             
             # Show Error Page when no data received or any error occurs
             self.controller.after(0, lambda: self.controller.show_error(
-                "Operation Failed", 
+                "FAILED TO HANDSHAKE", 
                 msg, 
                 LoginPage
             ))
@@ -883,7 +883,7 @@ class ProgramPage(ttk.Frame):
         def on_ui_error(err_msg):
              print(f"[DU Reader Error] {err_msg}")
              # Switch to ErrorPage
-             self.controller.after(0, lambda: self.controller.show_error("Operation Failed", err_msg, ProgramPage))
+             self.controller.after(0, lambda: self.controller.show_error("FAILED TO HANDSHAKE", err_msg, ProgramPage))
 
         def run_thread():
              token = self.controller.token
