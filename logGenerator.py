@@ -133,6 +133,7 @@ def write_log(
         with open(csvfile_path, "a", newline="") as f:
             csv.writer(f).writerow(csv_row)
         print("File has been written")
+        generateLog(errorCode, errorName, log_payload)
     except Exception as e:
         print("E43 - Error writing Log:", e)
 
