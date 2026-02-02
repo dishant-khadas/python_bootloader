@@ -7,6 +7,7 @@ from typing import Callable
 from decrypt_utils import decrypt_hex_block
 from du_utils import calculate_crc16, calculate_little_endian
 from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low, turn_display_On, turn_display_Off
+from logGenerator import write_log
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -110,7 +111,8 @@ def read_du_from_serial(
                 except:
                     pass
                 ser.close()
-                callback_ui_error("E31 - No data received during Handshake (15s timeout)")
+                callback_ui_error("E31 - No Data Received During Handshake")
+                write_log("E-31", "No Data Received", "Failed", "No Data Received During Handshake", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
                 return
 
             # Also timeout if we've been waiting too long even with partial data
@@ -292,6 +294,8 @@ def read_du_from_serial(
         # callback_ui_message("Querying server for DU update list...")
         
         success, options_or_msg, _ = fetch_du_list(token, du_number, display_number)
+
+        print("DU_Update API result:", success, options_or_msg)
         
         if not success:
             if "No DU Assigned" in str(options_or_msg):
