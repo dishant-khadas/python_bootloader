@@ -289,6 +289,30 @@ def read_du_from_serial(
             callback_ui_error(f"Parsing DU/Display failed: {e}")
             return
 
+        # Validate DU number: must start with 99 and be 8 digits
+        du_str = str(du_number)
+        if len(du_str) != 8 or not du_str.startswith("99"):
+            try:
+                turn_BL_Detect_Low()
+                turn_display_Off()
+            except:
+                pass
+            write_log("E-58", "Invalid DU Number Received", "Failed", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", os.getenv("DEVICE_ID", "41999990"), "", str(du_number), "", "")
+            callback_ui_error(f"E58 - Invalid DU Number Received: {du_number}")
+            return
+
+        # Validate display number: must start with 12 and be 8 digits
+        display_str = str(display_number)
+        if len(display_str) != 8 or not display_str.startswith("12"):
+            try:
+                turn_BL_Detect_Low()
+                turn_display_Off()
+            except:
+                pass
+            write_log("E-58", "Invalid Display Number Received", "Failed", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", os.getenv("DEVICE_ID", "41999990"), "", str(du_number), str(display_number), "")
+            callback_ui_error(f"E58 - Invalid Display Number Received: {display_number}")
+            return
+
         try:
             turn_BL_Detect_Low()
         except:
