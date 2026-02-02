@@ -857,6 +857,7 @@ class ProgramPage(ttk.Frame):
             target=read_du_from_serial,
             args=(
                 self.controller.token,  # auth token
+                getattr(self.controller, "phone", ""),  # phone number for logging
                 ui_message,
                 self.ui_success,  # Use class method which navigates to FileSelectionPage
                 ui_error,
@@ -889,6 +890,7 @@ class ProgramPage(ttk.Frame):
              token = self.controller.token
              read_du_from_serial(
                  token=token,
+                 phoneNo=getattr(self.controller, "phone", ""),
                  callback_ui_message=on_ui_message,
                  callback_ui_success=on_ui_success,
                  callback_ui_error=on_ui_error

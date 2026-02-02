@@ -42,6 +42,7 @@ def get_encryption_flag(fw1: int, fw2: int) -> bool:
 
 def read_du_from_serial(
     token: str,
+    phoneNo: str,
     callback_ui_message: Callable[[str], None],
     callback_ui_success: Callable[[dict], None],
     callback_ui_error: Callable[[str], None],
@@ -112,7 +113,7 @@ def read_du_from_serial(
                     pass
                 ser.close()
                 callback_ui_error("E31 - No Data Received During Handshake")
-                write_log("E-31", "No Data Received", "Failed", "No Data Received During Handshake", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
+                write_log("E-31", "No Data Received", "Failed", "No Data Received During Handshake", os.getenv("DEVICE_ID", "41999990"), phoneNo, "", "", "")
                 return
 
             # Also timeout if we've been waiting too long even with partial data
@@ -197,7 +198,7 @@ def read_du_from_serial(
                     turn_display_Off()
                 except:
                     pass
-                write_log("E-42", "Invalid Data Received", "Failed", f"CRC Mismatch: Calculated {little_end} vs Received {crc_recv}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
+                write_log("E-42", "Invalid Data Received", "Failed", f"CRC Mismatch: Calculated {little_end} vs Received {crc_recv}", os.getenv("DEVICE_ID", "41999990"), phoneNo, "", "", "")
                 callback_ui_error("E52 - Invalid Data Received")
                 return
 
@@ -242,11 +243,11 @@ def read_du_from_serial(
                         
                         validated = True
                     else:
-                        write_log("E-42", "Invalid Data Received", "Failed", f"CRC fail after decrypt: Calculated {little_end} vs Received {crc_recv}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
+                        write_log("E-42", "Invalid Data Received", "Failed", f"CRC fail after decrypt: Calculated {little_end} vs Received {crc_recv}", os.getenv("DEVICE_ID", "41999990"), phoneNo, "", "", "")
                         callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
                         return
                 else:
-                    write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
+                    write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", os.getenv("DEVICE_ID", "41999990"), phoneNo, "", "", "")
                     callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
                     return
 
@@ -255,7 +256,7 @@ def read_du_from_serial(
                     turn_BL_Detect_Low()
                 except:
                     pass
-                write_log("E-42", "Invalid Data Received", "Failed", f"Decrypt failed: {e}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
+                write_log("E-42", "Invalid Data Received", "Failed", f"Decrypt failed: {e}", os.getenv("DEVICE_ID", "41999990"), phoneNo, "", "", "")
                 callback_ui_error(f"E52 - Decrypt failed: {e}")
                 return
 
@@ -263,7 +264,7 @@ def read_du_from_serial(
             # Case where one matches and other doesn't (SOP=2a but EOP!=3c, etc.)
             callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
             turn_BL_Detect_Low()
-            write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
+            write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", os.getenv("DEVICE_ID", "41999990"), phoneNo, "", "", "")
             callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
             return
 
@@ -272,7 +273,7 @@ def read_du_from_serial(
                 turn_BL_Detect_Low()
             except:
                 pass
-            write_log("E-42", "Invalid Data Received", "Failed", "Verification Failed - Data could not be validated", os.getenv("DEVICE_ID", "41999990"), "", "", "", "")
+            write_log("E-42", "Invalid Data Received", "Failed", "Verification Failed - Data could not be validated", os.getenv("DEVICE_ID", "41999990"), phoneNo, "", "", "")
             callback_ui_error("E52 - Verification Failed")
             return
 
@@ -297,7 +298,7 @@ def read_du_from_serial(
                 turn_display_Off()
             except:
                 pass
-            write_log("E-58", "Invalid DU Number Received", "Failed", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", os.getenv("DEVICE_ID", "41999990"), "", str(du_number), "", "")
+            write_log("E-58", "Invalid DU Number Received", "Failed", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", os.getenv("DEVICE_ID", "41999990"), phoneNo, str(du_number), "", "")
             callback_ui_error(f"E58 - Invalid DU Number Received: {du_number}")
             return
 
@@ -309,7 +310,7 @@ def read_du_from_serial(
                 turn_display_Off()
             except:
                 pass
-            write_log("E-58", "Invalid Display Number Received", "Failed", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", os.getenv("DEVICE_ID", "41999990"), "", str(du_number), str(display_number), "")
+            write_log("E-58", "Invalid Display Number Received", "Failed", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", os.getenv("DEVICE_ID", "41999990"), phoneNo, str(du_number), str(display_number), "")
             callback_ui_error(f"E58 - Invalid Display Number Received: {display_number}")
             return
 
