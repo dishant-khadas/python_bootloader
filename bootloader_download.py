@@ -109,6 +109,17 @@ def download_and_flash(file_id: str,
         calculated_encrypted_hash = sha256_hex_of_bytes(file_bytes)
         print("Calculated encrypted hash:", calculated_encrypted_hash)
         if calculated_encrypted_hash != encrypted_hash:
+            write_log(
+                errorCode="E-23",
+                errorName="Encrypted File Hash Mismatch",
+                result="Failed",
+                description="Downloaded file hash does not match the expected encrypted hash from server",
+                device_id=device_id,
+                phoneNo=phoneNo,
+                duNumber=duNumber,
+                displayNumber=displayNumber,
+                fileName=file_id,
+            )
             callback_error("E23 - Encrypted File Mismatch")
             return False
 
@@ -150,6 +161,17 @@ def download_and_flash(file_id: str,
         print("Calculated original hash:", calc_orig_hash)
         print("Expected original hash:", original_hash)
         if calc_orig_hash != original_hash:
+            write_log(
+                errorCode="E-24",
+                errorName="Original File Hash Mismatch",
+                result="Failed",
+                description="Decrypted file hash does not match the expected original hash from server",
+                device_id=device_id,
+                phoneNo=phoneNo,
+                duNumber=duNumber,
+                displayNumber=displayNumber,
+                fileName=file_id,
+            )
             callback_error("E24 - Original file Mismatch")
             return False
 
