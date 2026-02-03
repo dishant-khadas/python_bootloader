@@ -16,6 +16,7 @@ load_dotenv()
 import threading 
 from du_reader import read_du_from_serial
 from bootloader_download import download_and_flash
+from logGenerator import write_log
 
 import time
 
@@ -1215,6 +1216,19 @@ class FirmwareUpdatePage(ttk.Frame):
         
         self.progress.stop()
         self.status_label.config(text="Update failed", foreground="red")
+        
+        # Log the error
+        write_log(
+            errorCode="E-15",
+            errorName="Firmware Update Failed",
+            result="Failed",
+            description=error_msg,
+            device_id=os.getenv("DEVICE_ID", "41999990"),
+            phoneNo=getattr(self.controller, "phone", ""),
+            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
+            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
+            fileName=os.path.basename(self.output_path) if self.output_path else "",
+        )
         
         # Call GPIO functions on error
         try:
