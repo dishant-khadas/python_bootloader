@@ -4,24 +4,25 @@ import requests
 import serial
 from typing import Callable
 
+from config import config
 from decrypt_utils import decrypt_hex_block
 from du_utils import calculate_crc16, calculate_little_endian
-from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low, turn_display_On, turn_display_Off
+from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low, turn_display_On, turn_display_Off, safe_cleanup
+from logGenerator import write_log
+from du_api import fetch_du_list
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from du_api import fetch_du_list
+# Use centralized config
+DEFAULT_SERIAL_PORT = config.SERIAL_PORT
+DEFAULT_BAUDRATE = config.SERIAL_BAUD
+HANDSHAKE_TIMEOUT = config.HANDSHAKE_TIMEOUT
+REQUIRED_HEX_LENGTH = config.REQUIRED_HEX_LENGTH
 
-# Configurable defaults
-DEFAULT_SERIAL_PORT = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
-DEFAULT_BAUDRATE = int(os.getenv("SERIAL_BAUD", "115200"))
-HANDSHAKE_TIMEOUT = 10  # seconds
-REQUIRED_HEX_LENGTH = 1024  # hex chars == 512 bytes
-
-# Encryption key location in the 512-byte data (indices 395 to 427, 32 bytes)
-ENCRYPTED_KEY_START = 395
-ENCRYPTED_KEY_END = 427  # exclusive, so bytes[395:427] gives 32 bytes
+# Encryption key location in the 512-byte data
+ENCRYPTED_KEY_START = config.ENCRYPTED_KEY_START
+ENCRYPTED_KEY_END = config.ENCRYPTED_KEY_END
 
 
 def get_encryption_flag(fw1: int, fw2: int) -> bool:
@@ -41,6 +42,7 @@ def get_encryption_flag(fw1: int, fw2: int) -> bool:
 
 def read_du_from_serial(
     token: str,
+    phoneNo: str,
     callback_ui_message: Callable[[str], None],
     callback_ui_success: Callable[[dict], None],
     callback_ui_error: Callable[[str], None],
@@ -85,11 +87,7 @@ def read_du_from_serial(
             ser = serial.Serial(serial_port, baudrate=baudrate, timeout=0.5)
         except Exception as e:
             callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
-            try:
-                turn_BL_Detect_Low()
-                turn_display_Off()
-            except:
-                pass
+            safe_cleanup()
             return
 
         received_hex = ""
@@ -104,22 +102,15 @@ def read_du_from_serial(
             # Check for timeout (15 seconds with no data at all)
             elapsed = time.time() - start_time
             if elapsed > SERIAL_TIMEOUT and len(received_hex) == 0:
-                try:
-                    turn_BL_Detect_Low()
-                    turn_display_Off()
-                except:
-                    pass
+                safe_cleanup()
                 ser.close()
-                callback_ui_error("E31 - No data received during Handshake (15s timeout)")
+                callback_ui_error("E31 - No Data Received During Handshake")
+                write_log("E-31", "No Data Received", "Failed", "No Data Received During Handshake", config.DEVICE_ID, phoneNo, "", "", "")
                 return
 
             # Also timeout if we've been waiting too long even with partial data
             if elapsed > SERIAL_TIMEOUT:
-                try:
-                    turn_BL_Detect_Low()
-                    turn_display_Off()
-                except:
-                    pass
+                safe_cleanup()
                 ser.close()
                 callback_ui_error(f"E31 - Timeout: Only received {len(received_hex)} hex chars, need {REQUIRED_HEX_LENGTH}")
                 return
@@ -128,11 +119,7 @@ def read_du_from_serial(
             try:
                 chunk = ser.read(256)  # read up to 256 bytes at a time
             except Exception as e:
-                try:
-                    turn_BL_Detect_Low()
-                    turn_display_Off()
-                except:
-                    pass
+                safe_cleanup()
                 ser.close()
                 callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
                 return
@@ -190,11 +177,8 @@ def read_du_from_serial(
                 validated = True
             else:
                 callback_ui_message(f"CRC Mismatch: Calc {little_end} vs Recv {crc_recv}")
-                try:
-                    turn_BL_Detect_Low()
-                    turn_display_Off()
-                except:
-                    pass
+                safe_cleanup()
+                write_log("E-42", "Invalid Data Received", "Failed", f"CRC Mismatch: Calculated {little_end} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
                 callback_ui_error("E52 - Invalid Data Received")
                 return
 
@@ -239,32 +223,31 @@ def read_du_from_serial(
                         
                         validated = True
                     else:
+                        write_log("E-42", "Invalid Data Received", "Failed", f"CRC fail after decrypt: Calculated {little_end} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
                         callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
                         return
                 else:
+                    write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
                     callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
                     return
 
             except Exception as e:
-                try:
-                    turn_BL_Detect_Low()
-                except:
-                    pass
+                safe_cleanup()
+                write_log("E-42", "Invalid Data Received", "Failed", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
                 callback_ui_error(f"E52 - Decrypt failed: {e}")
                 return
 
         else:
             # Case where one matches and other doesn't (SOP=2a but EOP!=3c, etc.)
             callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
-            turn_BL_Detect_Low()
+            safe_cleanup()
+            write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
             callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
             return
 
         if not validated:
-            try:
-                turn_BL_Detect_Low()
-            except:
-                pass
+            safe_cleanup()
+            write_log("E-42", "Invalid Data Received", "Failed", "Verification Failed - Data could not be validated", config.DEVICE_ID, phoneNo, "", "", "")
             callback_ui_error("E52 - Verification Failed")
             return
 
@@ -274,11 +257,24 @@ def read_du_from_serial(
         try:
             du_number, display_number = parse_du_and_display_from_hex(final_hex)
         except Exception as e:
-            try:
-                turn_BL_Detect_Low()
-            except:
-                pass
+            safe_cleanup()
             callback_ui_error(f"Parsing DU/Display failed: {e}")
+            return
+
+        # Validate DU number: must start with 99 and be 8 digits
+        du_str = str(du_number)
+        if len(du_str) != 8 or not du_str.startswith("99"):
+            safe_cleanup()
+            write_log("E-58", "Invalid DU Number Received", "Failed", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), "", "")
+            callback_ui_error(f"E58 - Invalid DU Number Received: {du_number}")
+            return
+
+        # Validate display number: must start with 12 and be 8 digits
+        display_str = str(display_number)
+        if len(display_str) != 8 or not display_str.startswith("12"):
+            safe_cleanup()
+            write_log("E-58", "Invalid Display Number Received", "Failed", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
+            callback_ui_error(f"E58 - Invalid Display Number Received: {display_number}")
             return
 
         try:
@@ -292,6 +288,8 @@ def read_du_from_serial(
         # callback_ui_message("Querying server for DU update list...")
         
         success, options_or_msg, _ = fetch_du_list(token, du_number, display_number)
+
+        print("DU_Update API result:", success, options_or_msg)
         
         if not success:
             if "No DU Assigned" in str(options_or_msg):
@@ -314,11 +312,7 @@ def read_du_from_serial(
         return
 
     except Exception as exc:
-        try:
-            turn_BL_Detect_Low()
-            turn_display_Off()
-        except:
-            pass
+        safe_cleanup()
         callback_ui_error(f"Unexpected error: {exc}")
         return
 

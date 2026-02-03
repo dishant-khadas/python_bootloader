@@ -29,6 +29,7 @@ def fetch_du_list(token, du_number, display_number):
     try:
         response = requests.get(url, headers=headers, timeout=15)
         print("Status Code:", response.status_code)
+        print("Raw Response:", response.text)
         
         if response.status_code == 200:
             data = response.json()

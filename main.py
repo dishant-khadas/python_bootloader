@@ -14,8 +14,11 @@ load_dotenv()
 
 
 import threading 
+from config import config
+from gpio_control import safe_cleanup
 from du_reader import read_du_from_serial
 from bootloader_download import download_and_flash
+from logGenerator import write_log
 
 import time
 
@@ -832,23 +835,14 @@ class ProgramPage(ttk.Frame):
             self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def ui_error(msg):
-            from gpio_control import turn_BL_Detect_Low, turn_display_Off
             print("ERROR:", msg)
             
             # Call GPIO functions on error
-            try:
-                turn_BL_Detect_Low()
-            except Exception as e:
-                print(f"Warning: turn_BL_Detect_Low failed: {e}")
-            
-            try:
-                turn_display_Off()
-            except Exception as e:
-                print(f"Warning: turn_display_Off failed: {e}")
+            safe_cleanup()
             
             # Show Error Page when no data received or any error occurs
             self.controller.after(0, lambda: self.controller.show_error(
-                "Operation Failed", 
+                "FAILED TO HANDSHAKE", 
                 msg, 
                 LoginPage
             ))
@@ -857,6 +851,7 @@ class ProgramPage(ttk.Frame):
             target=read_du_from_serial,
             args=(
                 self.controller.token,  # auth token
+                getattr(self.controller, "phone", ""),  # phone number for logging
                 ui_message,
                 self.ui_success,  # Use class method which navigates to FileSelectionPage
                 ui_error,
@@ -883,12 +878,13 @@ class ProgramPage(ttk.Frame):
         def on_ui_error(err_msg):
              print(f"[DU Reader Error] {err_msg}")
              # Switch to ErrorPage
-             self.controller.after(0, lambda: self.controller.show_error("Operation Failed", err_msg, ProgramPage))
+             self.controller.after(0, lambda: self.controller.show_error("FAILED TO HANDSHAKE", err_msg, ProgramPage))
 
         def run_thread():
              token = self.controller.token
              read_du_from_serial(
                  token=token,
+                 phoneNo=getattr(self.controller, "phone", ""),
                  callback_ui_message=on_ui_message,
                  callback_ui_success=on_ui_success,
                  callback_ui_error=on_ui_error
@@ -1007,6 +1003,9 @@ class DownloadPage(ttk.Frame):
             device_id=device_id,
             is_encryption_enable=is_enc,
             encryption_key=enc_key,
+            phoneNo=getattr(self.controller, "phone", ""),
+            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
+            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
             callback_message=on_msg,
             callback_success=on_success,
             callback_error=on_serialPort,
@@ -1029,42 +1028,22 @@ class DownloadPage(ttk.Frame):
         self.controller.show_frame(ProgramPage)
 
     def download_error(self, err_text):
-        from gpio_control import turn_BL_Detect_Low, turn_display_Off
-        
         self.progress.stop()
         self.status_label.config(text="Error occurred", foreground="red")
         
         # Call GPIO functions on error
-        try:
-            turn_BL_Detect_Low()
-        except Exception as e:
-            print(f"Warning: turn_BL_Detect_Low failed: {e}")
-        
-        try:
-            turn_display_Off()
-        except Exception as e:
-            print(f"Warning: turn_display_Off failed: {e}")
+        safe_cleanup()
         
         # Redirect to ErrorPage, which usually goes BACK. 
         # User requested: "redirect to login page" from error page
         self.controller.show_error("Download Failed", err_text, return_frame=LoginPage)
 
     def serialPort_error(self, err_text):
-        from gpio_control import turn_BL_Detect_Low, turn_display_Off
-        
         self.progress.stop()
         self.status_label.config(text="Serial Port Error", foreground="red")
         
         # Call GPIO functions on error
-        try:
-            turn_BL_Detect_Low()
-        except Exception as e:
-            print(f"Warning: turn_BL_Detect_Low failed: {e}")
-        
-        try:
-            turn_display_Off()
-        except Exception as e:
-            print(f"Warning: turn_display_Off failed: {e}")
+        safe_cleanup()
         
         self.controller.show_error("Serial Port Error", err_text, return_frame=LoginPage)
 
@@ -1206,21 +1185,24 @@ class FirmwareUpdatePage(ttk.Frame):
     
     def on_update_error(self, error_msg):
         """Called when firmware update fails"""
-        from gpio_control import turn_BL_Detect_Low, turn_display_Off
-        
         self.progress.stop()
         self.status_label.config(text="Update failed", foreground="red")
         
-        # Call GPIO functions on error
-        try:
-            turn_BL_Detect_Low()
-        except Exception as e:
-            print(f"Warning: turn_BL_Detect_Low failed: {e}")
+        # Log the error
+        write_log(
+            errorCode="E-15",
+            errorName="Firmware Update Failed",
+            result="Failed",
+            description=error_msg,
+            device_id=config.DEVICE_ID,
+            phoneNo=getattr(self.controller, "phone", ""),
+            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
+            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
+            fileName=os.path.basename(self.output_path) if self.output_path else "",
+        )
         
-        try:
-            turn_display_Off()
-        except Exception as e:
-            print(f"Warning: turn_display_Off failed: {e}")
+        # Call GPIO functions on error
+        safe_cleanup()
         
         self.controller.show_error("Firmware Update Failed", error_msg, return_frame=LoginPage)
 
@@ -1434,20 +1416,28 @@ class LoginPage(ttk.Frame):
 
     def process_login(self, phone, password):
         from auth_api import login_api
-        ok, token = login_api(phone, password)
+        ok, token_or_error, error_type = login_api(phone, password)
 
         if not ok:
-            self.controller.after(0, lambda: self.controller.show_error(
-                title="Login Failed",
-                message="Incorrect phone or password.",
-                return_frame=LoginPage
-            )
-        )                          
-            
+            if error_type == "network_error":
+                # Network/internet error
+                self.controller.after(0, lambda: self.controller.show_error(
+                    title="Connection Error",
+                    message=token_or_error,
+                    return_frame=LoginPage
+                ))
+            else:
+                # Login failed (wrong credentials)
+                self.controller.after(0, lambda: self.controller.show_error(
+                    title="Login Failed",
+                    message="Incorrect phone or password.",
+                    return_frame=LoginPage
+                ))
             return
 
         # Save token globally on controller
-        self.controller.token = token
+        self.controller.token = token_or_error
+        self.controller.phone = phone  # Save phone number for logging
         self.controller.after(
             0,
                 lambda: self.controller.show_frame(ProgramPage)

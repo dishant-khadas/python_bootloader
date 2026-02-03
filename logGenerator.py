@@ -1,0 +1,147 @@
+import os
+import csv
+import datetime
+import socket
+import requests
+
+# API_URL = f"{os.getenv('SERVER_URL')}api/logs/data-log"
+API_URL = "http://192.168.1.171:3000/api/logs/data-log"
+next_serial_number = 1
+csvfile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
+
+
+def get_device_ip():
+    """Get the device's local IP address using socket connection."""
+    try:
+        # Create a socket and connect to an external address (doesn't actually send data)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "UNKNOWN"
+
+
+
+
+
+def generateLog(errorCode, errorName, payload):
+    print("Generate log function called!")
+    """
+    Sends log payload to Node.js server
+    """
+
+    request_payload = {
+        "errorCode": errorCode,
+        "errorName": errorName,
+        "logData": payload
+    }
+
+    try:
+        res = requests.post(
+            API_URL,
+            json=request_payload,
+            timeout=10
+        )
+
+        print("[LOG API] Status Code:", res.status_code)
+        print("[LOG API] Response:", res.text)
+
+    except requests.exceptions.Timeout:
+        print("[LOG API] Request timed out")
+
+    except requests.exceptions.ConnectionError:
+        print("[LOG API] Server unreachable")
+
+    except Exception as e:
+        print("[LOG API] Unexpected error:", str(e))
+
+
+
+def write_log(
+    errorCode,
+    errorName,
+    result,
+    description,
+    device_id,
+    phoneNo,
+    duNumber,
+    displayNumber,
+    fileName,
+):
+    global next_serial_number
+
+    data_sent = 0
+    now = datetime.datetime.now()
+
+    dateString = now.strftime("%d-%m-%Y")
+    timeString = now.strftime("%H:%M:%S")
+
+    year = now.year
+    month = f"{now.month:02d}"
+    day = f"{now.day:02d}"
+    hours = f"{now.hour:02d}"
+    minutes = f"{now.minute:02d}"
+    seconds = f"{now.second:02d}"
+
+    # ---- Read last serial ----
+    try:
+        if os.path.exists(csvfile_path):
+            with open(csvfile_path, "r") as f:
+                rows = list(csv.reader(f))
+                if rows:
+                    next_serial_number = int(rows[-1][0]) + 1
+                else:
+                    next_serial_number = 1
+    except Exception as e:
+        print("E41 - Log File not Found:", e)
+        return
+
+    # ---- Get IP ----
+    ip = get_device_ip()
+
+    # ---- Log ID ----
+    logID = f"{device_id}_{year-2000}{month}{day}{hours}{minutes}{seconds}_{next_serial_number}"
+
+    # ---- Write CSV ----
+    csv_row = [
+        next_serial_number,
+        logID,
+        phoneNo,
+        ip,
+        dateString,
+        timeString,
+        duNumber,
+        displayNumber,
+        fileName,
+        result,
+        description,
+        data_sent,
+    ]
+    log_payload = {
+        "Log_ID": logID,
+        "phoneNo": phoneNo,
+        "IP_Address": ip,
+        "Date": dateString,
+        "Time": timeString,
+        "DISPENSER_Serial_Number": duNumber,
+        "DISPLAY_Serial_Number": displayNumber,
+        "FileName": fileName,
+        "Result": result,
+        "Error_Description": description,
+    }
+    try:
+        with open(csvfile_path, "a", newline="") as f:
+            csv.writer(f).writerow(csv_row)
+        print("File has been written")
+        generateLog(errorCode, errorName, log_payload)
+    except Exception as e:
+        print("E43 - Error writing Log:", e)
+        # Still try to send to Node.js server even if CSV write fails
+        generateLog(errorCode, errorName, log_payload)
+        return
+
+    # ---- Payload for API ----
+
+

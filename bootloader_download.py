@@ -14,6 +14,7 @@ from du_utils import (
     format_hash_to_64_bytes, # hex-string -> 64-byte packet
 )
 from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
+from logGenerator import write_log
 
 import hashlib
 
@@ -43,6 +44,9 @@ def download_and_flash(file_id: str,
                        device_id: str,
                        is_encryption_enable: bool,
                        encryption_key: bytes,  # 32-byte key from decrypted 512-byte data
+                       phoneNo: str,           # phone number from login
+                       duNumber: str,          # DU serial number from 512 bytes
+                       displayNumber: str,     # Display serial number from 512 bytes
                        callback_message,   # callback_message(text) to update UI/log
                        callback_success,   # callback_success(result_dict) when done
                        callback_error,     # callback_error(error_text)
@@ -71,6 +75,17 @@ def download_and_flash(file_id: str,
 
         resp = requests.get(download_url, headers=headers, timeout=30)
         if resp.status_code != 200:
+            write_log(
+                errorCode="E-21",
+                errorName="File Download Failed",
+                result="Failed",
+                description=f"Failed to download file from server. Status code: {resp.status_code}",
+                device_id=device_id,
+                phoneNo=phoneNo,
+                duNumber=duNumber,
+                displayNumber=displayNumber,
+                fileName=file_id,
+            )
             callback_error(f"Failed to Download File")
             return False
 
@@ -94,6 +109,17 @@ def download_and_flash(file_id: str,
         calculated_encrypted_hash = sha256_hex_of_bytes(file_bytes)
         print("Calculated encrypted hash:", calculated_encrypted_hash)
         if calculated_encrypted_hash != encrypted_hash:
+            write_log(
+                errorCode="E-23",
+                errorName="Encrypted File Hash Mismatch",
+                result="Failed",
+                description="Downloaded file hash does not match the expected encrypted hash from server",
+                device_id=device_id,
+                phoneNo=phoneNo,
+                duNumber=duNumber,
+                displayNumber=displayNumber,
+                fileName=file_id,
+            )
             callback_error("E23 - Encrypted File Mismatch")
             return False
 
@@ -135,6 +161,17 @@ def download_and_flash(file_id: str,
         print("Calculated original hash:", calc_orig_hash)
         print("Expected original hash:", original_hash)
         if calc_orig_hash != original_hash:
+            write_log(
+                errorCode="E-24",
+                errorName="Original File Hash Mismatch",
+                result="Failed",
+                description="Decrypted file hash does not match the expected original hash from server",
+                device_id=device_id,
+                phoneNo=phoneNo,
+                duNumber=duNumber,
+                displayNumber=displayNumber,
+                fileName=file_id,
+            )
             callback_error("E24 - Original file Mismatch")
             return False
 

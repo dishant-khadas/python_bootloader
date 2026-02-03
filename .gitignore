@@ -20,6 +20,7 @@ __pycache__/wifi_utils.cpython-313.pyc
 
 # Env files
 .env
+logs.csv
 btl_host.py
 # bin files
 temp_Encrypted.bin
