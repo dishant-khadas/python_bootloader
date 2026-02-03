@@ -1,18 +1,14 @@
 import subprocess
-import os
 import platform
+
+from config import config
 
 IS_WINDOWS = platform.system() == "Windows"
 
-# BL_DETECT_Pin = int(os.getenv("BL_DETECT_PIN", "26"))      # example default
-BL_DETECT_Pin = 17
-
-# DISPLAY_ON_PIN = 27
-DISPLAY_ON_PIN = 4
-
-# DISPLAY_ON_PIN = int(os.getenv("DISPLAY_ON_PIN", "19"))    # example default
-
-GPIOCHIP = "gpiochip0"  # same as your Node code
+# Use centralized config values
+BL_DETECT_Pin = config.BL_DETECT_PIN
+DISPLAY_ON_PIN = config.DISPLAY_ON_PIN
+GPIOCHIP = config.GPIOCHIP
 
 
 def run_cmd(cmd):
@@ -31,7 +27,7 @@ def run_cmd(cmd):
 def turn_BL_Detect_High():
     run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_Pin}=1")
     if not IS_WINDOWS:
-      print(f"GPIO {BL_DETECT_Pin} HIGH")
+        print(f"GPIO {BL_DETECT_Pin} HIGH")
 
 
 def turn_BL_Detect_Low():
@@ -50,4 +46,25 @@ def turn_display_Off():
     print("DISPLAY OFF")
 
 
+def safe_cleanup():
+    """
+    Safely turn off BL detect and display, catching any errors.
+    This replaces the repetitive try/except blocks throughout the codebase.
+    """
+    try:
+        turn_BL_Detect_Low()
+    except Exception as e:
+        print(f"Warning: turn_BL_Detect_Low failed: {e}")
+    
+    try:
+        turn_display_Off()
+    except Exception as e:
+        print(f"Warning: turn_display_Off failed: {e}")
 
+
+def safe_bl_low():
+    """Safely turn BL detect low, catching any errors."""
+    try:
+        turn_BL_Detect_Low()
+    except Exception as e:
+        print(f"Warning: turn_BL_Detect_Low failed: {e}")

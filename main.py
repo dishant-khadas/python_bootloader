@@ -14,6 +14,8 @@ load_dotenv()
 
 
 import threading 
+from config import config
+from gpio_control import safe_cleanup
 from du_reader import read_du_from_serial
 from bootloader_download import download_and_flash
 from logGenerator import write_log
@@ -833,19 +835,10 @@ class ProgramPage(ttk.Frame):
             self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def ui_error(msg):
-            from gpio_control import turn_BL_Detect_Low, turn_display_Off
             print("ERROR:", msg)
             
             # Call GPIO functions on error
-            try:
-                turn_BL_Detect_Low()
-            except Exception as e:
-                print(f"Warning: turn_BL_Detect_Low failed: {e}")
-            
-            try:
-                turn_display_Off()
-            except Exception as e:
-                print(f"Warning: turn_display_Off failed: {e}")
+            safe_cleanup()
             
             # Show Error Page when no data received or any error occurs
             self.controller.after(0, lambda: self.controller.show_error(
@@ -1035,42 +1028,22 @@ class DownloadPage(ttk.Frame):
         self.controller.show_frame(ProgramPage)
 
     def download_error(self, err_text):
-        from gpio_control import turn_BL_Detect_Low, turn_display_Off
-        
         self.progress.stop()
         self.status_label.config(text="Error occurred", foreground="red")
         
         # Call GPIO functions on error
-        try:
-            turn_BL_Detect_Low()
-        except Exception as e:
-            print(f"Warning: turn_BL_Detect_Low failed: {e}")
-        
-        try:
-            turn_display_Off()
-        except Exception as e:
-            print(f"Warning: turn_display_Off failed: {e}")
+        safe_cleanup()
         
         # Redirect to ErrorPage, which usually goes BACK. 
         # User requested: "redirect to login page" from error page
         self.controller.show_error("Download Failed", err_text, return_frame=LoginPage)
 
     def serialPort_error(self, err_text):
-        from gpio_control import turn_BL_Detect_Low, turn_display_Off
-        
         self.progress.stop()
         self.status_label.config(text="Serial Port Error", foreground="red")
         
         # Call GPIO functions on error
-        try:
-            turn_BL_Detect_Low()
-        except Exception as e:
-            print(f"Warning: turn_BL_Detect_Low failed: {e}")
-        
-        try:
-            turn_display_Off()
-        except Exception as e:
-            print(f"Warning: turn_display_Off failed: {e}")
+        safe_cleanup()
         
         self.controller.show_error("Serial Port Error", err_text, return_frame=LoginPage)
 
@@ -1212,8 +1185,6 @@ class FirmwareUpdatePage(ttk.Frame):
     
     def on_update_error(self, error_msg):
         """Called when firmware update fails"""
-        from gpio_control import turn_BL_Detect_Low, turn_display_Off
-        
         self.progress.stop()
         self.status_label.config(text="Update failed", foreground="red")
         
@@ -1223,7 +1194,7 @@ class FirmwareUpdatePage(ttk.Frame):
             errorName="Firmware Update Failed",
             result="Failed",
             description=error_msg,
-            device_id=os.getenv("DEVICE_ID", "41999990"),
+            device_id=config.DEVICE_ID,
             phoneNo=getattr(self.controller, "phone", ""),
             duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
             displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
@@ -1231,15 +1202,7 @@ class FirmwareUpdatePage(ttk.Frame):
         )
         
         # Call GPIO functions on error
-        try:
-            turn_BL_Detect_Low()
-        except Exception as e:
-            print(f"Warning: turn_BL_Detect_Low failed: {e}")
-        
-        try:
-            turn_display_Off()
-        except Exception as e:
-            print(f"Warning: turn_display_Off failed: {e}")
+        safe_cleanup()
         
         self.controller.show_error("Firmware Update Failed", error_msg, return_frame=LoginPage)
 

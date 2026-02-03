@@ -6,7 +6,6 @@ import requests
 
 # API_URL = f"{os.getenv('SERVER_URL')}api/logs/data-log"
 API_URL = "http://192.168.1.171:3000/api/logs/data-log"
-written_log = False
 next_serial_number = 1
 csvfile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
 
@@ -71,10 +70,7 @@ def write_log(
     displayNumber,
     fileName,
 ):
-    global written_log, next_serial_number
-
-    if written_log:
-        return
+    global next_serial_number
 
     data_sent = 0
     now = datetime.datetime.now()
@@ -142,12 +138,10 @@ def write_log(
         generateLog(errorCode, errorName, log_payload)
     except Exception as e:
         print("E43 - Error writing Log:", e)
-
-        # ---- Send to Node.js server ----
+        # Still try to send to Node.js server even if CSV write fails
         generateLog(errorCode, errorName, log_payload)
         return
 
-    written_log = True
-
     # ---- Payload for API ----
+
 
