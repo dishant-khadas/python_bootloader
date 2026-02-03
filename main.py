@@ -1416,20 +1416,27 @@ class LoginPage(ttk.Frame):
 
     def process_login(self, phone, password):
         from auth_api import login_api
-        ok, token = login_api(phone, password)
+        ok, token_or_error, error_type = login_api(phone, password)
 
         if not ok:
-            self.controller.after(0, lambda: self.controller.show_error(
-                title="Login Failed",
-                message="Incorrect phone or password.",
-                return_frame=LoginPage
-            )
-        )                          
-            
+            if error_type == "network_error":
+                # Network/internet error
+                self.controller.after(0, lambda: self.controller.show_error(
+                    title="Connection Error",
+                    message=token_or_error,
+                    return_frame=LoginPage
+                ))
+            else:
+                # Login failed (wrong credentials)
+                self.controller.after(0, lambda: self.controller.show_error(
+                    title="Login Failed",
+                    message="Incorrect phone or password.",
+                    return_frame=LoginPage
+                ))
             return
 
         # Save token globally on controller
-        self.controller.token = token
+        self.controller.token = token_or_error
         self.controller.phone = phone  # Save phone number for logging
         self.controller.after(
             0,
