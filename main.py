@@ -170,7 +170,7 @@ class App(ttk.Window):
         if du_number and display_number:
             if firmware_file_name:
                 self.du_info_label.config(
-                    text=f"DU: {du_number} | Display: {display_number}\nFile: {firmware_file_name}"
+                    text=f"DU: {du_number}\nDisplay: {display_number}\nFile: {firmware_file_name}"
                 )
             else:
                 self.du_info_label.config(
