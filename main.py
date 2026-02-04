@@ -82,7 +82,7 @@ class App(ttk.Window):
         self.du_info_label = ttk.Label(
             self, 
             text="", 
-            font=self.lm.font(10), 
+            font=self.lm.font(14), 
             foreground="#666666",
             background="#ffffff"
         )
@@ -92,10 +92,13 @@ class App(ttk.Window):
         # Show splash screen first
         self.show_frame(SplashScreen)
 
-    def update_du_info(self, du_number, display_number):
+    def update_du_info(self, du_number, display_number, firmware_file_name=None):
         """Update the global DU info label shown at top-right of all pages"""
         if du_number and display_number:
-            self.du_info_label.config(text=f"DU: {du_number} | Display: {display_number}")
+            if firmware_file_name:
+                self.du_info_label.config(text=f"DU: {du_number} | Display: {display_number}\nFile: {firmware_file_name}")
+            else:
+                self.du_info_label.config(text=f"DU: {du_number} | Display: {display_number}")
             self.du_info_label.lift()  # Make visible above other widgets
         else:
             self.du_info_label.config(text="")
@@ -922,6 +925,8 @@ class ProgramPage(ttk.Frame):
         if len(file_names) == 1 and len(file_ids) == 1:
             # Only one file - bypass FileSelectionPage and auto-download
             print(f"Auto-downloading single file: {file_names[0]}")
+            # Update DU info with the firmware file name
+            self.controller.update_du_info(du_num, disp_num, file_names[0])
             download_page = self.controller.frames[DownloadPage]
             download_page.file_id = file_ids[0]
             self.controller.show_frame(DownloadPage)
@@ -1296,6 +1301,10 @@ class FileSelectionPage(ttk.Frame):
             
             if idx < len(file_ids):
                 file_id = file_ids[idx]
+                # Update DU info with the selected firmware file name
+                du_num = options.get("duNumber", "")
+                disp_num = options.get("displayNumber", "")
+                self.controller.update_du_info(du_num, disp_num, selected_file)
                 # Trigger the download logic in ProgramPage
                 # Trigger the download logic via DownloadPage
                 download_page = self.controller.frames[DownloadPage]
