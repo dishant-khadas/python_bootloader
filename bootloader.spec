@@ -47,6 +47,7 @@ hidden_imports += collect_submodules('botocore')
 datas = [
     ('czar.png', '.'),           # Logo image
     ('.env', '.'),               # Environment config (if exists)
+    ('btl_host.py', '.'),        # Firmware flashing script
 ]
 
 # Add ttkbootstrap themes and assets
