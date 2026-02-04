@@ -75,6 +75,8 @@ class FirmwareUpdatePage(ttk.Frame):
     
     def on_show(self):
         """Called when the page is shown - starts firmware update."""
+        # Reset status label to prevent old text from briefly appearing
+        self.status_label.config(text="Please wait...", foreground="black")
         self.progress.start(10)
         threading.Thread(target=self.run_btl_host, daemon=True).start()
     
