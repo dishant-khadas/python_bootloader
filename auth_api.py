@@ -1,18 +1,54 @@
+"""
+Authentication API Module for Python Bootloader Application.
+
+This module handles user authentication by communicating with the backend
+authentication server. It provides login functionality for service engineers
+using phone number and password credentials.
+
+API Endpoint:
+    POST /api/auth/serviceEngineer/phonelogin
+
+Functions:
+    login_api: Authenticate user with phone number and password.
+
+Error Handling:
+    - Network errors (no internet, timeout) return error_type="network_error"
+    - Invalid credentials return error_type="login_failed"
+    - Successful login returns error_type="success" with auth token
+"""
+
 import os
 import requests
 from logGenerator import write_log
 
+# Authentication API endpoint
 API_URL = "https://bootloader.czarmetricsystem.com/api/auth/serviceEngineer/phonelogin"
 
-def login_api(phone, password):
+
+def login_api(phone: str, password: str) -> tuple[bool, str, str]:
     """
-    Attempts to login with phone and password.
+    Authenticate a service engineer with phone number and password.
     
+    Makes a POST request to the authentication API with the provided
+    credentials. Handles various error conditions including network
+    issues and invalid credentials.
+    
+    Args:
+        phone (str): The user's phone number (with or without country code).
+        password (str): The user's password.
+        
     Returns:
-        tuple: (success: bool, token_or_error: str, error_type: str)
-        - success: True if login succeeded
-        - token_or_error: Token on success, error message on failure
-        - error_type: "success", "network_error", "login_failed"
+        tuple: A 3-tuple containing:
+            - success (bool): True if login succeeded, False otherwise.
+            - token_or_error (str): JWT token on success, error message on failure.
+            - error_type (str): One of "success", "network_error", or "login_failed".
+            
+    Example:
+        success, result, error_type = login_api("+919876543210", "password123")
+        if success:
+            token = result
+        else:
+            error_message = result
     """
     device_id = os.getenv("DEVICE_ID", "UNKNOWN")
 
@@ -44,6 +80,7 @@ def login_api(phone, password):
                 print("Login Success! Token:", data["token"])
                 return True, data["token"], "success"
 
+        # Log failed login attempt
         print("Login Failed")
         write_log("E-51", "Login Failed", "Failed", "Invalid Credentials", device_id, phone, "", "", "")
         return False, "Invalid phone or password", "login_failed"
@@ -57,3 +94,4 @@ def login_api(phone, password):
     except Exception as e:
         print("API ERROR:", str(e))
         return False, f"Network error: {str(e)}", "network_error"
+
