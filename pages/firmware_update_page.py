@@ -162,10 +162,20 @@ class FirmwareUpdatePage(ttk.Frame):
             print(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
             self.controller.after(0, lambda: self.on_update_error(error_msg))
     
+    def cleanup_temp_file(self):
+        """Delete the temporary decrypted firmware file."""
+        if self.output_path and os.path.exists(self.output_path):
+            try:
+                os.remove(self.output_path)
+                print(f"[CLEANUP] Deleted temp file: {self.output_path}")
+            except Exception as e:
+                print(f"[CLEANUP WARNING] Failed to delete temp file: {e}")
+    
     def on_update_success(self):
         """Called when firmware update completes successfully."""
         from pages.login_page import LoginPage
         
+        self.cleanup_temp_file()
         self.progress.stop()
         self.status_label.config(text="Firmware updated successfully!", foreground="green")
         self.controller.after(3000, lambda: self.controller.show_frame(LoginPage))
@@ -174,6 +184,7 @@ class FirmwareUpdatePage(ttk.Frame):
         """Called when firmware update fails."""
         from pages.login_page import LoginPage
         
+        self.cleanup_temp_file()
         self.progress.stop()
         self.status_label.config(text="Update failed", foreground="red")
         
