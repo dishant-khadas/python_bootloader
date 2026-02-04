@@ -1,7 +1,28 @@
+"""
+T9 Keypad Module for Python Bootloader Application.
+
+This module provides a T9-style on-screen keyboard component for tkinter,
+simulating the classic multi-tap phone keyboard input (like old Nokia phones).
+It's designed for touchscreen input on devices without physical keyboards.
+
+Features:
+    - Multi-tap character cycling (press same key repeatedly to cycle)
+    - Capital, lowercase, and symbol layouts
+    - Numpad mode for numeric-only input
+    - Backspace and layout switching
+    - Responsive scaling via LayoutManager
+
+Classes:
+    T9Keypad: Tkinter frame containing the T9 keyboard.
+
+Usage:
+    keypad = T9Keypad(parent, target_entry, close_callback, layout_manager)
+    keypad.pack()
+"""
+
 import tkinter as tk
 from tkinter import font as tkfont
 import time
-
 
 class T9Keypad(tk.Frame):
     """

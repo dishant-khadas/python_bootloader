@@ -1,3 +1,34 @@
+"""
+Bootloader Download Module for Python Bootloader Application.
+
+This module handles firmware file download, verification, decryption, and
+preparation for flashing to the display hardware. It's the core of the
+firmware update process.
+
+Key Features:
+    - Secure file download with token authentication
+    - Encrypted file hash verification (SHA-256)
+    - AWS KMS key decryption for file encryption key
+    - AES-256-ECB file decryption
+    - Original file hash verification after decryption
+    - Final packet preparation with encryption support
+    - Serial port communication for hash transmission
+
+Process Flow:
+    1. Download encrypted firmware from server
+    2. Verify downloaded file hash
+    3. Decrypt the file encryption key via KMS
+    4. Decrypt firmware file with data key
+    5. Verify decrypted file hash
+    6. Format and encrypt final hash packet
+    7. Send hash packet to display via serial
+    8. Trigger firmware update via btl_host.py
+
+Functions:
+    download_and_flash: Main firmware download and verification function.
+    sha256_hex_of_bytes: Calculate SHA-256 hash of bytes.
+    encrypt_final_packet: Encrypt the 64-byte hash packet.
+"""
 
 import os
 import time
@@ -6,6 +37,7 @@ import base64
 import requests
 import serial
 import tempfile
+import hashlib
 
 from du_utils import (
     generate_hash,           # hex-string version (we will use bytes variant locally)
@@ -15,28 +47,44 @@ from du_utils import (
 )
 from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
 from logGenerator import write_log
-
-import hashlib
+from decrypt_utils import encrypt_hex_block
 
 from dotenv import load_dotenv
 load_dotenv()
 
-# --------- helper: sha256 of bytes (hex) ----------
+
 def sha256_hex_of_bytes(b: bytes) -> str:
+    """
+    Calculate SHA-256 hash of byte data.
+    
+    Args:
+        b (bytes): Input data to hash.
+        
+    Returns:
+        str: SHA-256 hash as 64-character lowercase hex string.
+    """
     return hashlib.sha256(b).hexdigest()
 
-# --------- placeholder encrypt function (if you port Encrypt from JS) ----------
-from decrypt_utils import encrypt_hex_block
 
-# --------- placeholder encrypt function (if you port Encrypt from JS) ----------
+
 def encrypt_final_packet(final_packet_bytes: bytes) -> bytes:
     """
-    Encrypts the final 64-byte packet (if encryption enabled).
-    Converts bytes -> hex -> encrypt_hex_block -> hex string -> bytes.
+    Encrypt the 64-byte final packet using AES-256-CBC.
+    
+    This encryption is applied when the DU has encryption enabled,
+    matching the encryption expected by the display hardware.
+    
+    Args:
+        final_packet_bytes (bytes): 64-byte packet containing hash data.
+        
+    Returns:
+        bytes: Encrypted 64-byte packet.
     """
     hex_str = final_packet_bytes.hex()
     encrypted_hex = encrypt_hex_block(hex_str)
     return bytes.fromhex(encrypted_hex)
+
+
 
 # --------- main function ----------
 def download_and_flash(file_id: str,

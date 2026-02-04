@@ -1,3 +1,33 @@
+"""
+Dispenser Unit (DU) Reader Module for Python Bootloader Application.
+
+This module handles the serial communication handshake with the display hardware
+to read device identification data (DU number and Display number). It validates
+the received data using CRC checks and can handle both encrypted and unencrypted
+data frames.
+
+Key Features:
+    - Serial port communication with configurable parameters
+    - Automatic detection of encrypted vs unencrypted data
+    - CRC-16 validation of received data
+    - AES-256-CBC decryption for encrypted frames
+    - Extraction of DU and Display serial numbers
+    - Integration with DU_Update API for firmware list retrieval
+
+Protocol Details:
+    - Data frame: 512 bytes (1024 hex characters)
+    - SOP (Start of Packet): 0x2A at byte 0
+    - EOP (End of Packet): 0x3C at byte 509
+    - CRC-16: bytes 510-511 (little-endian)
+    - DU Number: bytes 1-4 (hex digits 2-10)
+    - Display Number: bytes 5-8 (hex digits 10-18)
+
+Functions:
+    read_du_from_serial: Main handshake function (run in thread).
+    get_encryption_flag: Determine encryption based on firmware version.
+    parse_du_and_display_from_hex: Extract serial numbers from hex data.
+"""
+
 import os
 import time
 import requests
@@ -14,29 +44,36 @@ from du_api import fetch_du_list
 from dotenv import load_dotenv
 load_dotenv()
 
-# Use centralized config
+# Serial port configuration from centralized config
 DEFAULT_SERIAL_PORT = config.SERIAL_PORT
 DEFAULT_BAUDRATE = config.SERIAL_BAUD
 HANDSHAKE_TIMEOUT = config.HANDSHAKE_TIMEOUT
 REQUIRED_HEX_LENGTH = config.REQUIRED_HEX_LENGTH
 
-# Encryption key location in the 512-byte data
+# Encryption key location in the 512-byte data frame
 ENCRYPTED_KEY_START = config.ENCRYPTED_KEY_START
 ENCRYPTED_KEY_END = config.ENCRYPTED_KEY_END
 
 
+
 def get_encryption_flag(fw1: int, fw2: int) -> bool:
     """
-    Port of getEncryptionFlag (simple heuristic: firmware >= some version).
-    Adjust logic if you have a different rule.
+    Determine if encryption is enabled based on firmware version.
+    
+    Checks if the firmware version indicates encryption support.
+    Encryption is enabled for firmware versions >= 11.8.
+    
+    Args:
+        fw1 (int): Major firmware version number.
+        fw2 (int): Minor firmware version number.
+        
+    Returns:
+        bool: True if encryption should be enabled, False otherwise.
     """
     try:
         return (fw1 >= 11 and fw2 >= 8)
     except Exception:
         return False
-
-
-
 
 
 

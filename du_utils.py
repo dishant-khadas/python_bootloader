@@ -1,4 +1,37 @@
-# du_utils.py
+"""
+Dispenser Unit (DU) Utilities Module for Python Bootloader Application.
+
+This module provides utility functions for firmware processing, CRC validation,
+cryptographic operations, and network connectivity checks used during the
+bootloader update process.
+
+Key Functionality:
+    - CRC-16 calculation and validation (Modbus polynomial)
+    - SHA-256 hash generation for firmware integrity
+    - AES-256-ECB decryption for encrypted firmware files
+    - AWS KMS key decryption for secure key management
+    - Network connectivity checks
+    - WiFi connection management via nmcli
+
+Cryptographic Notes:
+    - CRC-16 uses polynomial 0xA001 (Modbus/IBM standard)
+    - AES uses 256-bit keys in ECB mode for file decryption
+    - KMS is used for decrypting data encryption keys
+
+Functions:
+    calculate_crc16: Calculate CRC-16 checksum.
+    calculate_little_endian: Convert CRC to little-endian hex.
+    match_crc16: Validate CRC in 512-byte buffer.
+    generate_hash: Generate SHA-256 hash of hex data.
+    decrypt_file: Decrypt firmware file using AES-256-ECB.
+    decrypt_key_kms: Decrypt encryption key using AWS KMS.
+    format_hash_to_64_bytes: Format hash for transmission.
+    exec_command: Execute shell command.
+    run_commands: Run WiFi connection commands.
+    check_connection: Check internet connectivity.
+    convert_seconds: Convert seconds to hours/minutes/seconds.
+"""
+
 import subprocess
 import hashlib
 from Crypto.Cipher import AES
@@ -7,14 +40,19 @@ import boto3
 import requests
 
 
-# ---------------------------
-# CRC16 (Modbus/IBM) function
-# ---------------------------
 def calculate_crc16(data: bytes) -> int:
     """
-    Calculate CRC-16 (polynomial 0xA001) same as the JS implementation.
-    Input: bytes
-    Returns: integer CRC (0..0xFFFF)
+    Calculate CRC-16 checksum using Modbus/IBM polynomial.
+    
+    Uses polynomial 0xA001 which is the bit-reversed version of 0x8005
+    (CRC-16-IBM). This matches the JavaScript implementation used in
+    the original Node.js bootloader.
+    
+    Args:
+        data (bytes): Input data to calculate CRC for.
+        
+    Returns:
+        int: CRC-16 value (0x0000 to 0xFFFF).
     """
     crc = 0xFFFF
     for b in data:
@@ -29,8 +67,16 @@ def calculate_crc16(data: bytes) -> int:
 
 def calculate_little_endian(crc: int) -> str:
     """
-    Convert crc to "little-endian" 4-char hex string (lowercase), same as JS:
-    ((crc >> 8) | ((crc & 0xFF) << 8)).toString(16).padStart(4,"0")
+    Convert CRC to little-endian 4-character hex string.
+    
+    Swaps the high and low bytes of the CRC value, matching the
+    JavaScript implementation: ((crc >> 8) | ((crc & 0xFF) << 8))
+    
+    Args:
+        crc (int): CRC-16 value to convert.
+        
+    Returns:
+        str: 4-character lowercase hex string in little-endian format.
     """
     le = ((crc >> 8) | ((crc & 0xFF) << 8)) & 0xFFFF
     return format(le, "04x")
@@ -38,8 +84,16 @@ def calculate_little_endian(crc: int) -> str:
 
 def match_crc16(buffer_data: bytes) -> bool:
     """
-    Compare CRC computed over bytes 0..509 with bytes 510..511 in buffer_data.
-    buffer_data must be at least 512 bytes.
+    Validate CRC-16 in a 512-byte data buffer.
+    
+    Computes CRC over bytes 0-509 and compares with the CRC stored
+    in bytes 510-511. Used for validating data frames from hardware.
+    
+    Args:
+        buffer_data (bytes): Buffer of at least 512 bytes.
+        
+    Returns:
+        bool: True if computed CRC matches stored CRC, False otherwise.
     """
     if len(buffer_data) < 512:
         return False
@@ -48,13 +102,18 @@ def match_crc16(buffer_data: bytes) -> bool:
     return little_end == buffer_data[510:512].hex()
 
 
-# ---------------------------
-# Hash and file helpers
-# ---------------------------
 def generate_hash(hex_data: str) -> str:
     """
-    Input: hex string (like JS Buffer.from(data, 'hex'))
-    Return: sha256(hex_data) as hex string
+    Generate SHA-256 hash of hex-encoded data.
+    
+    Args:
+        hex_data (str): Hex string of data to hash.
+        
+    Returns:
+        str: SHA-256 hash as 64-character hex string.
+        
+    Raises:
+        ValueError: If hex_data is not valid hexadecimal.
     """
     try:
         file_bytes = bytes.fromhex(hex_data)
@@ -68,10 +127,21 @@ def generate_hash(hex_data: str) -> str:
 
 def decrypt_file(hex_data: str, key: bytes) -> bytes:
     """
-    AES-256-ECB decrypt.
-    hex_data: hex string of encrypted file
-    key: bytes (length must be 32 bytes)
-    Returns decrypted bytes (not hex)
+    Decrypt firmware file using AES-256-ECB.
+    
+    Args:
+        hex_data (str): Hex string of encrypted file data.
+        key (bytes): 32-byte AES key.
+        
+    Returns:
+        bytes: Decrypted file content.
+        
+    Raises:
+        ValueError: If key is not bytes or not 32 bytes long.
+        
+    Note:
+        Attempts PKCS7 unpadding. If unpadding fails (custom padding
+        or exact block alignment), returns raw decrypted data.
     """
     if not isinstance(key, (bytes, bytearray)):
         raise ValueError("decrypt_file: key must be bytes")
@@ -83,65 +153,75 @@ def decrypt_file(hex_data: str, key: bytes) -> bytes:
     cipher = AES.new(key, AES.MODE_ECB)
     decrypted = cipher.decrypt(encrypted_bytes)
 
-    # In Node they used Buffer.concat(decipher.update(...), decipher.final()) - PyCryptodome decrypt gives complete bytes.
-    # Try unpadding. If it fails (some custom encryption?), return raw. 
-    # Usually standard AES-256-ECB/CBC implies PKCS7 padding.
+    # Attempt PKCS7 unpadding
     try:
         return unpad(decrypted, AES.block_size)
     except ValueError:
-        # If padding is incorrect or not used, return raw (mimics no unpad, though usually error)
-        # But for files that match exact blocks, unpad might fail if it treats last bytes as padding
-        # Let's hope it's standard PKCS7.
+        # If padding is incorrect, return raw decrypted data
         return decrypted
 
 
-# ---------------------------
-# KMS decrypt (decryptKey)
-# ---------------------------
 def decrypt_key_kms(ciphertext: bytes, region: str = "ap-south-1") -> bytes | None:
     """
-    Uses boto3 KMS decrypt to decrypt a data key. Returns plaintext bytes or None.
-    ciphertext: bytes (binary ciphertext blob)
+    Decrypt a data encryption key using AWS KMS.
+    
+    Uses the AWS KMS decrypt API to decrypt a ciphertext blob that
+    was previously encrypted with a KMS customer master key.
+    
+    Args:
+        ciphertext (bytes): Encrypted key ciphertext blob.
+        region (str): AWS region for KMS. Default is "ap-south-1".
+        
+    Returns:
+        bytes | None: Decrypted key bytes, or None on error.
     """
     try:
         client = boto3.client("kms", region_name=region)
         resp = client.decrypt(CiphertextBlob=ciphertext)
-        # resp['Plaintext'] is bytes
         return resp.get("Plaintext")
     except Exception as e:
         print("decrypt_key_kms error:", e)
         return None
 
 
-# ---------------------------
-# formatHashTo64Bytes
-# ---------------------------
 def format_hash_to_64_bytes(hex_hash: str) -> bytes | bool:
     """
-    Input: 64-char hex string (32 bytes)
-    Creates a 64-byte buffer:
-    - byte[0] = 0x2a
-    - bytes[1..32] = hash bytes
-    - byte[61] = 0x3c
-    - bytes[62..63] = CRC16 (high then low) of bytes 0..61 (62 bytes)
-    Returns bytes object (64 bytes) or False on error
+    Format a SHA-256 hash into a 64-byte transmission buffer.
+    
+    Creates a structured 64-byte buffer for sending the hash to hardware:
+    - Byte 0: Start marker (0x2A)
+    - Bytes 1-32: Hash bytes
+    - Byte 61: End marker (0x3C)
+    - Bytes 62-63: CRC-16 of bytes 0-61 (high byte, low byte)
+    
+    Args:
+        hex_hash (str): 64-character hex string (32-byte SHA-256 hash).
+        
+    Returns:
+        bytes: 64-byte formatted buffer.
+        bool: False if formatting fails.
+        
+    Raises:
+        ValueError: If hash is not exactly 64 hex characters.
     """
     try:
         if len(hex_hash) != 64:
             raise ValueError("Hash must be 64 hex characters (32 bytes)")
 
-        hash_buf = bytes.fromhex(hex_hash)  # 32 bytes
-        final = bytearray(64)  # zero-initialized
+        hash_buf = bytes.fromhex(hex_hash)
+        final = bytearray(64)
 
+        # Set start marker
         final[0] = 0x2A
-        final[1:1+len(hash_buf)] = hash_buf  # 1..32
+        # Copy hash bytes
+        final[1:1+len(hash_buf)] = hash_buf
+        # Set end marker
         final[61] = 0x3C
 
-        # Calculate CRC16 of bytes 0..61 (62 bytes)
+        # Calculate and append CRC-16
         crc = calculate_crc16(bytes(final[:62]))
-        # In JS they put high byte then low byte:
-        final[62] = (crc >> 8) & 0xFF
-        final[63] = crc & 0xFF
+        final[62] = (crc >> 8) & 0xFF  # High byte
+        final[63] = crc & 0xFF         # Low byte
 
         return bytes(final)
     except Exception as e:
@@ -149,22 +229,28 @@ def format_hash_to_64_bytes(hex_hash: str) -> bytes | bool:
         return False
 
 
-# ---------------------------
-# nmcli wrapper (runCommands)
-# ---------------------------
 def exec_command(command: str, ssid: str | None = None) -> str:
     """
-    Run a shell command and return stdout. Raise subprocess.CalledProcessError on failure.
-    Similar to execPromise in Node.
+    Execute a shell command and return stdout.
+    
+    Args:
+        command (str): Shell command to execute.
+        ssid (str, optional): SSID for WiFi connection success detection.
+        
+    Returns:
+        str: Command stdout output.
+        
+    Raises:
+        subprocess.CalledProcessError: If command fails.
     """
     try:
         print("Running:", command)
         completed = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
         out = completed.stdout
-        # detect success message similar to Node "successfully activated"
+        
+        # Detect WiFi connection success
         if ssid and ("successfully activated" in out or "successfully activated" in completed.stdout.lower()):
             print("Connection Success", ssid)
-            # In original Node they sent events; here we return success
         return out
     except subprocess.CalledProcessError as e:
         stderr = e.stderr or ""
@@ -173,10 +259,21 @@ def exec_command(command: str, ssid: str | None = None) -> str:
         raise
 
 
-def run_commands(values: dict):
+def run_commands(values: dict) -> str:
     """
-    values expected to have 'ssid' and 'password'.
-    Mirrors runCommands JS function but synchronous.
+    Execute WiFi connection commands via nmcli.
+    
+    Enables WiFi radio, scans for networks, and connects to the
+    specified network with the provided password.
+    
+    Args:
+        values (dict): Dictionary with 'ssid' and 'password' keys.
+        
+    Returns:
+        str: Command output on success.
+        
+    Raises:
+        Exception: If any WiFi command fails.
     """
     wifi_ssid = values.get("ssid")
     password = values.get("password")
@@ -191,10 +288,16 @@ def run_commands(values: dict):
         raise
 
 
-# ---------------------------
-# checkConnection (https to google)
-# ---------------------------
 def check_connection(timeout: int = 5) -> bool:
+    """
+    Check internet connectivity by connecting to Google.
+    
+    Args:
+        timeout (int): Request timeout in seconds. Default is 5.
+        
+    Returns:
+        bool: True if internet is available, False otherwise.
+    """
     try:
         resp = requests.get("https://www.google.com", timeout=timeout)
         return resp.status_code == 200
@@ -203,10 +306,16 @@ def check_connection(timeout: int = 5) -> bool:
         return False
 
 
-# ---------------------------
-# convertSeconds
-# ---------------------------
-def convert_seconds(total_seconds) -> dict:
+def convert_seconds(total_seconds: int) -> dict:
+    """
+    Convert total seconds to hours, minutes, and seconds.
+    
+    Args:
+        total_seconds (int): Total number of seconds.
+        
+    Returns:
+        dict: Dictionary with 'hours', 'minutes', 'seconds' keys.
+    """
     t = int(total_seconds)
     hours = t // 3600
     minutes = (t % 3600) // 60
@@ -214,9 +323,20 @@ def convert_seconds(total_seconds) -> dict:
     return {"hours": hours, "minutes": minutes, "seconds": seconds}
 
 
-# ---------------------------
 # Expose module functions
-# ---------------------------
+__all__ = [
+    "calculate_crc16",
+    "calculate_little_endian",
+    "match_crc16",
+    "generate_hash",
+    "decrypt_file",
+    "decrypt_key_kms",
+    "format_hash_to_64_bytes",
+    "run_commands",
+    "exec_command",
+    "check_connection",
+    "convert_seconds",
+]
 __all__ = [
     "calculate_crc16",
     "calculate_little_endian",

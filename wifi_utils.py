@@ -1,11 +1,43 @@
+"""
+WiFi Utilities Module for Python Bootloader Application.
+
+This module provides cross-platform WiFi management functionality including
+network scanning, connection, disconnection, and connectivity checking.
+
+Platform Support:
+    - Windows: Uses netsh wlan commands
+    - Linux/Raspberry Pi: Uses nmcli (NetworkManager CLI)
+
+Functions:
+    scan_wifi: Scan for available WiFi networks.
+    connect_wifi: Connect to a WiFi network with password.
+    check_internet: Check if internet is available.
+    disconnect_wifi: Disconnect from current WiFi network.
+    wait_for_wifi_connected: Wait for connection to specific SSID.
+    get_connected_ssid: Get the currently connected network name.
+    has_ip: Check if device has a valid IP address.
+"""
+
 import subprocess
 import platform
 import time
 import socket
 
+# Platform detection for command selection
 IS_WINDOWS = platform.system() == "Windows"
 
-def scan_wifi():
+
+def scan_wifi() -> list[str]:
+    """
+    Scan for available WiFi networks.
+    
+    Uses platform-specific commands to discover nearby WiFi networks
+    and returns a list of unique SSIDs.
+    
+    Returns:
+        list[str]: List of available network SSIDs.
+                   Returns error messages as list items on failure.
+    """
     if IS_WINDOWS:
         try:
             # Run netsh command to scan WiFi networks
@@ -35,6 +67,7 @@ def scan_wifi():
             print(f"Unexpected error: {e}")
             return ["Error scanning networks"]
         
+    # Linux/Raspberry Pi - use nmcli
     try:
         output = subprocess.check_output("nmcli -t -f SSID dev wifi", shell=True).decode()
         ssids = list({s.strip() for s in output.split("\n") if s.strip()})
@@ -42,7 +75,25 @@ def scan_wifi():
     except:
         return []
 
-def connect_wifi(ssid, password):
+
+def connect_wifi(ssid: str, password: str) -> bool:
+    """
+    Connect to a WiFi network with the given credentials.
+    
+    On Windows, creates a WiFi profile and connects using netsh.
+    On Linux, uses nmcli to connect directly.
+    
+    Args:
+        ssid (str): The network name to connect to.
+        password (str): The network password.
+        
+    Returns:
+        bool: True if connection command succeeded, False otherwise.
+        
+    Note:
+        A True return doesn't guarantee internet connectivity.
+        Use check_internet() to verify network access.
+    """
     if IS_WINDOWS:
         try:
             # Create a WiFi profile XML
@@ -79,6 +130,7 @@ def connect_wifi(ssid, password):
                 f.write(profile_xml)
             
             try:
+                # Delete existing profile if any
                 subprocess.run(
                     f'netsh wlan delete profile name="{ssid}"',
                     shell=True,
@@ -116,9 +168,11 @@ def connect_wifi(ssid, password):
             print(f"Error connecting to WiFi: {e}")
             return False
 
+    # Linux/Raspberry Pi - use nmcli
     try:
+        # Delete existing connection profile if any
         subprocess.run(
-            ["nmcli","connection","delete",ssid],
+            ["nmcli", "connection", "delete", ssid],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
@@ -128,8 +182,16 @@ def connect_wifi(ssid, password):
     except:
         return False
 
-def check_internet():
-    """Check if internet is available by pinging Google DNS"""
+
+def check_internet() -> bool:
+    """
+    Check if internet connectivity is available.
+    
+    Pings Google DNS (8.8.8.8) to verify internet access.
+    
+    Returns:
+        bool: True if internet is available, False otherwise.
+    """
     try:
         if IS_WINDOWS:
             # Windows ping uses -n for count
@@ -149,15 +211,37 @@ def check_internet():
     except Exception:
         return False
 
-def disconnect_wifi()-> None:
+
+def disconnect_wifi() -> None:
+    """
+    Disconnect from the current WiFi network.
+    
+    Uses platform-specific commands to disconnect from the
+    currently connected WiFi network.
+    """
     try:
-        if platform.system()=="Windows":
-            subprocess.run(["netsh","wlan","disconnect"], capture_output=True, text=True)
+        if platform.system() == "Windows":
+            subprocess.run(["netsh", "wlan", "disconnect"], capture_output=True, text=True)
         else:
-            subprocess.run(["nmcli","dev","disconnect","wlan0"], capture_output=True, text=True)
+            subprocess.run(["nmcli", "dev", "disconnect", "wlan0"], capture_output=True, text=True)
     except Exception:
         pass
+
+
 def wait_for_wifi_connected(ssid: str, timeout: int = 15) -> bool:
+    """
+    Wait for WiFi connection to a specific network.
+    
+    Polls the WiFi connection status until either the target
+    network is connected or the timeout is reached.
+    
+    Args:
+        ssid (str): The network name to wait for.
+        timeout (int): Maximum wait time in seconds. Default is 15.
+        
+    Returns:
+        bool: True if connected to the specified SSID, False if timeout.
+    """
     start = time.time()
     target = (ssid or "").strip().lower()
     
@@ -195,11 +279,15 @@ def wait_for_wifi_connected(ssid: str, timeout: int = 15) -> bool:
         time.sleep(0.5)
         
     return False
+
+
+def get_connected_ssid() -> str | None:
+    """
+    Get the currently connected WiFi network name.
     
-
-
-
-def get_connected_ssid():
+    Returns:
+        str | None: The SSID of the connected network, or None if not connected.
+    """
     if IS_WINDOWS:
         try:
             # Get current WiFi connection info
@@ -222,6 +310,7 @@ def get_connected_ssid():
             print(f"Error getting connected SSID: {e}")
             return None 
 
+    # Linux/Raspberry Pi - use nmcli
     try:
         result = subprocess.check_output(
             "nmcli -t -f ACTIVE,SSID dev wifi", shell=True
@@ -233,12 +322,24 @@ def get_connected_ssid():
         return None
     except:
         return None
-def has_ip():
+
+
+def has_ip() -> bool:
+    """
+    Check if the device has a valid (non-localhost) IP address.
+    
+    Uses a socket connection to detect the assigned IP address
+    and verifies it's not a localhost address.
+    
+    Returns:
+        bool: True if device has a valid IP, False otherwise.
+    """
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8",80))
+        s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
         return bool(ip) and not ip.startswith("127.")
     except:
         return False
+
