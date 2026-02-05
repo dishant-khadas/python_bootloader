@@ -4,9 +4,19 @@ All configurable values should be defined here to avoid hardcoding throughout th
 """
 
 import os
+import sys
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the correct location (handle PyInstaller bundle)
+if getattr(sys, 'frozen', False):
+    # Running as PyInstaller bundle - .env is in _MEIPASS
+    base_path = sys._MEIPASS
+else:
+    # Running as normal Python script
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+env_path = os.path.join(base_path, '.env')
+load_dotenv(env_path)
 
 
 class Config:
