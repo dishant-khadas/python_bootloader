@@ -160,8 +160,10 @@ class FirmwareUpdatePage(ttk.Frame):
             else:
                 stderr_output = self.process.stderr.read()
                 print(f"[BTL_HOST STDERR]: {stderr_output}")
-                self.controller.after(0, lambda: self.on_update_error(
-                    f"btl_host.py failed with code {return_code}"
+                # Include stderr in error message for better debugging
+                error_detail = stderr_output.strip() if stderr_output else f"Exit code {return_code}"
+                self.controller.after(0, lambda e=error_detail: self.on_update_error(
+                    f"Firmware update failed: {e}"
                 ))
                 
         except FileNotFoundError:
