@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=CZAR Bootloader
 Comment=Firmware Update Application for CZAR Displays
-Exec=/home/czar/app/python_bootloader/dist/czar_bootloader/czar_bootloader
-Icon=/home/czar/app/python_bootloader/dist/czar_bootloader/_internal/czar.png
+Exec=/home/czar/app/python_bootloader/czar_launcher.sh
+Icon=/home/czar/app/python_bootloader/czar.png
 Terminal=false
 Type=Application
 Categories=Utility;Development;
