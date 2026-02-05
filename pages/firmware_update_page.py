@@ -123,23 +123,27 @@ class FirmwareUpdatePage(ttk.Frame):
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                bufsize=1  # Line buffered
             )
             
-            # Read stdout in real-time
-            for line in iter(self.process.stdout.readline, ''):
-                if line:
-                    output_text = line.strip()
-                    print(f"[BTL_HOST STDOUT]: {output_text}")
-                    
-                    # Format percentage display
-                    try:
-                        float(output_text)
-                        display_text = f"{output_text}%"
-                    except ValueError:
-                        display_text = output_text
-                    
-                    self.controller.after(0, lambda t=display_text: self.status_label.config(text=t))
+            # Read stdout in real-time with error handling
+            try:
+                for line in iter(self.process.stdout.readline, ''):
+                    if line:
+                        output_text = line.strip()
+                        print(f"[BTL_HOST STDOUT]: {output_text}")
+                        
+                        # Format percentage display
+                        try:
+                            float(output_text)
+                            display_text = f"{output_text}%"
+                        except ValueError:
+                            display_text = output_text
+                        
+                        self.controller.after(0, lambda t=display_text: self.status_label.config(text=t))
+            except (BrokenPipeError, IOError) as e:
+                print(f"[FIRMWARE UPDATE] Pipe error (process may have ended): {e}")
             
             # Wait for completion
             self.process.wait()
