@@ -4,8 +4,8 @@
 
 set -e
 
-# Configuration - adjust these paths if needed
-APP_DIR="/home/pi/python_bootloader/dist/czar_bootloader"
+# Configuration - paths for czar user
+APP_DIR="/home/czar/app/python_bootloader/dist/czar_bootloader"
 DESKTOP_FILE="czar_bootloader.desktop"
 
 echo "Installing CZAR Bootloader desktop icon..."
@@ -17,7 +17,10 @@ if [ ! -f "$APP_DIR/czar_bootloader" ]; then
     exit 1
 fi
 
-# Update the desktop file with correct paths
+# Make executable runnable
+chmod +x "$APP_DIR/czar_bootloader"
+
+# Create the desktop file with correct paths
 cat > /tmp/$DESKTOP_FILE << EOF
 [Desktop Entry]
 Name=CZAR Bootloader
@@ -44,5 +47,4 @@ echo ""
 echo "✓ Desktop icon created at: ~/Desktop/$DESKTOP_FILE"
 echo "✓ App menu entry created at: ~/.local/share/applications/$DESKTOP_FILE"
 echo ""
-echo "You may need to right-click the desktop icon and select"
-echo "'Allow Launching' or 'Trust and Launch' on first use."
+echo "Double-click the icon to launch the application!"
