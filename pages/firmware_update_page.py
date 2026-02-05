@@ -89,14 +89,17 @@ class FirmwareUpdatePage(ttk.Frame):
             # Get path to btl_host.py - handle PyInstaller bundle
             if getattr(sys, 'frozen', False):
                 # Running as PyInstaller bundle
-                # Look for btl_host.py next to the executable
-                base_dir = os.path.dirname(sys.executable)
+                # Data files are in sys._MEIPASS (the _internal folder)
+                base_dir = sys._MEIPASS
             else:
                 # Running as normal Python script
                 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             
             default_btl_path = os.path.join(base_dir, "btl_host.py")
             btl_host_path = os.getenv("BTL_HOST_PATH", default_btl_path)
+            
+            print(f"[DEBUG] Looking for btl_host.py at: {btl_host_path}")
+            print(f"[DEBUG] File exists: {os.path.exists(btl_host_path)}")
             python_path = os.getenv("PYTHON_PATH", "python3")
             serial_port = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
             

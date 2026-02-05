@@ -25,3 +25,5 @@ btl_host.py
 # bin files
 temp_Encrypted.bin
 temp_Original.bin
+build
+dist
