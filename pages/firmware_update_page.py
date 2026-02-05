@@ -191,6 +191,20 @@ class FirmwareUpdatePage(ttk.Frame):
         self.cleanup_temp_file()
         self.progress.stop()
         self.status_label.config(text="Firmware updated successfully!", foreground="green")
+        
+        # Log successful firmware update
+        write_log(
+            errorCode="S-01",
+            errorName="Firmware Update Success",
+            result="Success",
+            description="Firmware updated successfully",
+            device_id=config.DEVICE_ID,
+            phoneNo=getattr(self.controller, "phone", ""),
+            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
+            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
+            fileName=os.path.basename(self.output_path) if self.output_path else "",
+        )
+        
         self.controller.after(3000, lambda: self.controller.show_frame(LoginPage))
     
     def on_update_error(self, error_msg):
