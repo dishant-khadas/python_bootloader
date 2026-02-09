@@ -164,11 +164,10 @@ class FirmwareUpdatePage(ttk.Frame):
             else:
                 stderr_output = self.process.stderr.read()
                 print(f"[BTL_HOST STDERR]: {stderr_output}")
-                # Include stderr in error message for better debugging
-                error_detail = stderr_output.strip() if stderr_output else f"Exit code {return_code}"
-                self.controller.after(0, lambda e=error_detail: self.on_update_error(
-                    f"Firmware update failed: {e}"
-                ))
+                
+                # Parse error to show clean user-friendly message
+                error_detail = self._parse_btl_error(stderr_output, return_code)
+                self.controller.after(0, lambda e=error_detail: self.on_update_error(e))
                 
         except FileNotFoundError:
             error_msg = f"btl_host.py not found at {btl_host_path}"
@@ -178,6 +177,44 @@ class FirmwareUpdatePage(ttk.Frame):
             error_msg = f"Firmware update error: {e}"
             print(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
             self.controller.after(0, lambda: self.on_update_error(error_msg))
+    
+    def _parse_btl_error(self, stderr_output: str, return_code: int) -> str:
+        """
+        Parse btl_host.py stderr output to extract a clean error message.
+        
+        Args:
+            stderr_output: Raw stderr output from btl_host.py
+            return_code: Process exit code
+            
+        Returns:
+            Clean, user-friendly error message
+        """
+        if not stderr_output:
+            return f"Firmware update failed (exit code {return_code})"
+        
+        # Split into lines and find the actual error
+        lines = stderr_output.strip().split('\n')
+        
+        # Filter out warning/retry lines, keep only actual error
+        error_lines = []
+        for line in lines:
+            line = line.strip()
+            # Skip empty lines and warning/retry messages
+            if not line:
+                continue
+            if line.startswith("Warning:") and "retrying" in line:
+                continue
+            error_lines.append(line)
+        
+        if error_lines:
+            # Return the last meaningful error line (usually the final error)
+            final_error = error_lines[-1]
+            # Clean up common patterns
+            if final_error.startswith("Error:"):
+                final_error = final_error[6:].strip()
+            return f"Firmware update failed: {final_error}"
+        
+        return f"Firmware update failed (exit code {return_code})"
     
     def cleanup_temp_file(self):
         """Delete the temporary decrypted firmware file."""
