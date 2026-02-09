@@ -89,7 +89,7 @@ class SplashScreen(ttk.Frame):
     
     def transition_to_next_page(self):
         """Transition to the appropriate next page based on WiFi status."""
-        from wifi_utils import get_connected_ssid
+        from utils.wifi_utils import get_connected_ssid
         from pages.login_page import LoginPage
         from pages.scan_page import ScanPage
         
