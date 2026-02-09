@@ -117,10 +117,6 @@ class FileSelectionPage(ttk.Frame):
             
             if idx < len(file_ids):
                 file_id = file_ids[idx]
-                # Update DU info with selected firmware
-                du_num = options.get("duNumber", "")
-                disp_num = options.get("displayNumber", "")
-                self.controller.update_du_info(du_num, disp_num, selected_file)
                 # Start download
                 download_page = self.controller.frames[DownloadPage]
                 download_page.file_id = file_id

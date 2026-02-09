@@ -140,16 +140,12 @@ class ProgramPage(ttk.Frame):
         self.controller.is_encryption_enable = is_enc
         self.controller.encryption_key = enc_key
         
-        # Update global DU info display
-        self.controller.update_du_info(du_num, disp_num)
-        
         # Check for single file auto-download
         file_names = options.get("fileName", [])
         file_ids = options.get("fileId", [])
         
         if len(file_names) == 1 and len(file_ids) == 1:
             print(f"Auto-downloading single file: {file_names[0]}")
-            self.controller.update_du_info(du_num, disp_num, file_names[0])
             download_page = self.controller.frames[DownloadPage]
             download_page.file_id = file_ids[0]
             self.controller.show_frame(DownloadPage)
