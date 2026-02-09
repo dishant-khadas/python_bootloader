@@ -148,7 +148,7 @@ class App(ttk.Window):
         self.du_info_label = ttk.Label(
             self, 
             text="", 
-            font=self.lm.font(14), 
+            font=self.lm.font(12), 
             foreground="#666666",
             background="#ffffff"
         )
