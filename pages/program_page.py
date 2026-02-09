@@ -10,8 +10,8 @@ import threading
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import PRIMARY, WARNING
 
-from gpio_control import safe_cleanup
-from du_reader import read_du_from_serial
+from utils.gpio_control import safe_cleanup
+from core.du_reader import read_du_from_serial
 
 
 class ProgramPage(ttk.Frame):

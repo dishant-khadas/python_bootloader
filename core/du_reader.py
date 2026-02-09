@@ -35,11 +35,11 @@ import serial
 from typing import Callable
 
 from config import config
-from decrypt_utils import decrypt_hex_block
-from du_utils import calculate_crc16, calculate_little_endian
-from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low, turn_display_On, turn_display_Off, safe_cleanup
-from logGenerator import write_log
-from du_api import fetch_du_list
+from utils.decrypt_utils import decrypt_hex_block
+from utils.du_utils import calculate_crc16, calculate_little_endian
+from utils.gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low, turn_display_On, turn_display_Off, safe_cleanup
+from core.logGenerator import write_log
+from api.du_api import fetch_du_list
 
 from dotenv import load_dotenv
 load_dotenv()

@@ -30,7 +30,7 @@ Key Features:
 import ttkbootstrap as ttk
 from dotenv import load_dotenv
 
-from ui_utils import LayoutManager
+from utils.ui_utils import LayoutManager
 
 # Import all page classes from pages package
 from pages import (

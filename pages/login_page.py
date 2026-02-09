@@ -129,7 +129,7 @@ class LoginPage(ttk.Frame):
 
     def process_login(self, phone, password):
         """Background thread for login API call."""
-        from auth_api import login_api
+        from api.auth_api import login_api
         from pages.program_page import ProgramPage
         
         ok, token_or_error, error_type = login_api(phone, password)

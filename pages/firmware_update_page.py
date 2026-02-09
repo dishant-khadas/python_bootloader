@@ -14,8 +14,8 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import INFO
 
 from config import config
-from gpio_control import safe_cleanup, turn_display_Off
-from logGenerator import write_log
+from utils.gpio_control import safe_cleanup, turn_display_Off
+from core.logGenerator import write_log
 
 
 class FirmwareUpdatePage(ttk.Frame):

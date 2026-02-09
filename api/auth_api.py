@@ -19,7 +19,7 @@ Error Handling:
 
 import os
 import requests
-from logGenerator import write_log
+from core.logGenerator import write_log
 
 # Authentication API endpoint
 API_URL = "https://bootloader.czarmetricsystem.com/api/auth/serviceEngineer/phonelogin"
