@@ -47,7 +47,7 @@ class SplashScreen(ttk.Frame):
         # Load and display logo
         try:
             # Load the PNG image
-            logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "czar.png")
+            logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "czar.png")
             self.original_image = Image.open(logo_path)
             
             # Resize to fit nicely on screen
