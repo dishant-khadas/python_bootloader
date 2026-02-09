@@ -13,7 +13,7 @@ APP_DIR="/home/czar/app/python_bootloader"
 cd "$APP_DIR"
 
 # Log file for debugging (optional - can be removed later)
-LOG_FILE="$APP_DIR/app.log"
+# LOG_FILE="$APP_DIR/app.log"
 
 # Activate virtual environment
 source venv/bin/activate
