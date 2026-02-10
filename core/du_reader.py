@@ -40,6 +40,7 @@ from utils.du_utils import calculate_crc16, calculate_little_endian
 from utils.gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low, turn_display_On, turn_display_Off, safe_cleanup
 from core.logGenerator import write_log
 from api.du_api import fetch_du_list
+from core.display_logger import write_display_log
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -320,6 +321,12 @@ def read_du_from_serial(
             pass
 
         callback_ui_message(f"DU detected: {du_number}, Display: {display_number}")
+
+        # Write display log to CSV
+        try:
+            write_display_log(final_hex)
+        except Exception as log_err:
+            print(f"Warning: Failed to write display log: {log_err}")
 
         # Now call DU_Update API to get file list
         # callback_ui_message("Querying server for DU update list...")
