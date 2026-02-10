@@ -36,6 +36,22 @@ hidden_imports = [
     'pages.download_page',
     'pages.firmware_update_page',
     'pages.error_page',
+    # Utils package
+    'utils',
+    'utils.decrypt_utils',
+    'utils.du_utils',
+    'utils.wifi_utils',
+    'utils.gpio_control',
+    'utils.ui_utils',
+    # API package
+    'api',
+    'api.auth_api',
+    'api.du_api',
+    # Core package
+    'core',
+    'core.bootloader_download',
+    'core.du_reader',
+    'core.logGenerator',
 ]
 
 # Collect all submodules for packages that dynamically import
@@ -45,7 +61,7 @@ hidden_imports += collect_submodules('botocore')
 
 # Data files to include
 datas = [
-    ('czar.png', '.'),           # Logo image
+    ('assets/czar.png', '.'),    # Logo image
     ('.env', '.'),               # Environment config (if exists)
     ('btl_host.py', '.'),        # Firmware flashing script
 ]

@@ -57,23 +57,20 @@ def get_device_ip() -> str:
         return "UNKNOWN"
 
 
-def generateLog(errorCode: str, errorName: str, payload: dict) -> None:
+def generateLog(errorCode: str, payload: dict) -> None:
     """
     Send a log payload to the remote Node.js logging server.
     
-    Makes a POST request to the logging API with the error information
+    Makes a POST request to the logging API with the error code
     and log payload. This is called after writing to the local CSV.
     
     Args:
         errorCode (str): The error code (e.g., "E-51", "E-15").
-        errorName (str): Human-readable error name (e.g., "Login Failed").
-        payload (dict): Dictionary containing log data fields.
+        payload (dict): Dictionary containing log data fields (includes errorCode).
     """
     print("Generate log function called!")
 
     request_payload = {
-        "errorCode": errorCode,
-        "errorName": errorName,
         "logData": payload
     }
 
@@ -194,6 +191,7 @@ def write_log(
         "FileName": fileName,
         "Result": result,
         "Error_Description": description,
+        "errorCode": errorCode,
     }
     
     # Write to CSV and send to server
@@ -201,9 +199,9 @@ def write_log(
         with open(csvfile_path, "a", newline="") as f:
             csv.writer(f).writerow(csv_row)
         print("File has been written")
-        generateLog(errorCode, errorName, log_payload)
+        generateLog(errorCode, log_payload)
     except Exception as e:
         print("E43 - Error writing Log:", e)
         # Still try to send to Node.js server even if CSV write fails
-        generateLog(errorCode, errorName, log_payload)
+        generateLog(errorCode, log_payload)
         return

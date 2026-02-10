@@ -10,7 +10,7 @@ import time
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import PRIMARY
 
-from wifi_utils import scan_wifi
+from utils.wifi_utils import scan_wifi
 
 
 class ScanPage(ttk.Frame):

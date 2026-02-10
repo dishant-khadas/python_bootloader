@@ -39,15 +39,15 @@ import serial
 import tempfile
 import hashlib
 
-from du_utils import (
+from utils.du_utils import (
     generate_hash,           # hex-string version (we will use bytes variant locally)
     decrypt_file,            # expects (hex_string, key_bytes) -> bytes
     decrypt_key_kms,         # KMS decrypt (ciphertext bytes) -> plaintext bytes
     format_hash_to_64_bytes, # hex-string -> 64-byte packet
 )
-from gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
-from logGenerator import write_log
-from decrypt_utils import encrypt_hex_block
+from utils.gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
+from core.logGenerator import write_log
+from utils.decrypt_utils import encrypt_hex_block
 
 from dotenv import load_dotenv
 load_dotenv()

@@ -11,7 +11,7 @@ import time
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import SECONDARY, INFO, SUCCESS
 
-from wifi_utils import scan_wifi
+from utils.wifi_utils import scan_wifi
 
 
 class WifiListPage(ttk.Frame):

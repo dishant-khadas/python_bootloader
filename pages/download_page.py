@@ -9,8 +9,8 @@ import threading
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import INFO
 
-from gpio_control import safe_cleanup
-from bootloader_download import download_and_flash
+from utils.gpio_control import safe_cleanup
+from core.bootloader_download import download_and_flash
 
 
 class DownloadPage(ttk.Frame):

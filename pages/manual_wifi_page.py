@@ -12,7 +12,7 @@ from ttkbootstrap.constants import SUCCESS, SECONDARY, INFO
 from tkinter import messagebox
 
 from t9_keypad import T9Keypad
-from wifi_utils import connect_wifi
+from utils.wifi_utils import connect_wifi
 
 
 class ManualWifiPage(ttk.Frame):

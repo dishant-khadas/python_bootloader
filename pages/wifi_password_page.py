@@ -11,7 +11,7 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import PRIMARY, SECONDARY, INFO
 
 from t9_keypad import T9Keypad
-from wifi_utils import connect_wifi, check_internet, wait_for_wifi_connected, disconnect_wifi
+from utils.wifi_utils import connect_wifi, check_internet, wait_for_wifi_connected, disconnect_wifi
 
 
 class WifiPasswordPage(ttk.Frame):
