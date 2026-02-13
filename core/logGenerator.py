@@ -76,12 +76,12 @@ def generateLog(errorCode: str, payload: dict) -> None:
 
     print("Payload to Send : ", payload)
     try:
-        res = requests.post(
-            API_URL,
-            # json=request_payload,
-            json=payload,
-            timeout=10
-        )
+    #     res = requests.post(
+    #         API_URL,
+    #         # json=request_payload,
+    #         json=payload,
+    #         timeout=10
+    #     )
 
         print("[LOG API] Status Code:", res.status_code)
         print("[LOG API] Response:", res.text)
