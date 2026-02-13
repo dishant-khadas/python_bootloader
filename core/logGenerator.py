@@ -32,8 +32,10 @@ API_URL = "https://bootloader.czarmetricsystem.com/api/logs/data-log"
 # Global counter for log serial numbers
 next_serial_number = 1
 
-# Path to local CSV log file
-csvfile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
+# Path to local CSV log file (in Logs/ folder)
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Logs")
+os.makedirs(log_dir, exist_ok=True)
+csvfile_path = os.path.join(log_dir, "logs.csv")
 
 
 def get_device_ip() -> str:
