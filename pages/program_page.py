@@ -146,6 +146,7 @@ class ProgramPage(ttk.Frame):
         
         if len(file_names) == 1 and len(file_ids) == 1:
             print(f"Auto-downloading single file: {file_names[0]}")
+            self.controller.selected_file_name = file_names[0]
             download_page = self.controller.frames[DownloadPage]
             download_page.file_id = file_ids[0]
             self.controller.show_frame(DownloadPage)
