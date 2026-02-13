@@ -229,23 +229,42 @@ def format_hash_to_64_bytes(hex_hash: str) -> bytes | bool:
         return False
 
 
-def exec_command(command: str, ssid: str | None = None) -> str:
+def exec_command(command: str | list[str], ssid: str | None = None, use_array: bool = False) -> str:
     """
     Execute a shell command and return stdout.
     
+    SECURITY NOTE: Prefer use_array=True with list commands to prevent injection attacks.
+    
     Args:
-        command (str): Shell command to execute.
+        command (str | list[str]): Shell command string or array of command parts.
         ssid (str, optional): SSID for WiFi connection success detection.
+        use_array (bool): If True, command must be a list and shell=False is used.
         
     Returns:
         str: Command stdout output.
         
     Raises:
         subprocess.CalledProcessError: If command fails.
+        
+    Examples:
+        # Safe array-based command (prevents injection)
+        exec_command(["nmcli", "device", "wifi", "connect", "MyWiFi", "password", "pass123"], use_array=True)
+        
+        # Legacy string command (only for static commands without user input)
+        exec_command("nmcli radio wifi on")
     """
     try:
-        print("Running:", command)
-        completed = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        print("Running:", command if isinstance(command, str) else " ".join(command))
+        
+        if use_array and isinstance(command, list):
+            # SECURE: Array-based command with shell=False prevents injection
+            completed = subprocess.run(command, shell=False, check=True, capture_output=True, text=True)
+        elif isinstance(command, str):
+            # Legacy mode: Only use for static commands without user input
+            completed = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        else:
+            raise ValueError("Invalid command type. use_array=True requires list command.")
+            
         out = completed.stdout
         
         # Detect WiFi connection success
@@ -280,8 +299,14 @@ def run_commands(values: dict) -> str:
     try:
         exec_command("nmcli radio wifi on")
         exec_command("nmcli device wifi list")
-        connect_cmd = f"nmcli device wifi connect '{wifi_ssid}' password '{password}'"
-        out = exec_command(connect_cmd, ssid=wifi_ssid)
+        # SECURITY FIX: Use array-based command instead of shell=True to prevent injection
+        # Old vulnerable code: f"nmcli device wifi connect '{wifi_ssid}' password '{password}'"
+        # This prevented attack like password = "'; rm -rf / #"
+        out = exec_command(
+            ["nmcli", "device", "wifi", "connect", wifi_ssid, "password", password],
+            ssid=wifi_ssid,
+            use_array=True  # Signal to exec_command to use array mode
+        )
         return out
     except Exception as e:
         print("run_commands error:", e)

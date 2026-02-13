@@ -176,8 +176,15 @@ def connect_wifi(ssid: str, password: str) -> bool:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        cmd = f"nmcli dev wifi connect '{ssid}' password '{password}'"
-        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # SECURITY FIX: Use array-based command to prevent injection attacks
+        # Old vulnerable code: f"nmcli dev wifi connect '{ssid}' password '{password}'"
+        # Attack vector: password = "'; rm -rf / #" would execute arbitrary commands
+        result = subprocess.run(
+            ["nmcli", "dev", "wifi", "connect", ssid, "password", password],
+            shell=False,  # CRITICAL: shell=False prevents command injection
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
         return result.returncode == 0
     except:
         return False
