@@ -243,7 +243,7 @@ class FirmwareUpdatePage(ttk.Frame):
             phoneNo=getattr(self.controller, "phone", ""),
             duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
             displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
-            fileName=os.path.basename(self.output_path) if self.output_path else "",
+            fileName=getattr(self.controller, "selected_file_name", ""),
         )
         
         self.controller.after(3000, lambda: self.controller.show_frame(LoginPage))
@@ -266,7 +266,7 @@ class FirmwareUpdatePage(ttk.Frame):
             phoneNo=getattr(self.controller, "phone", ""),
             duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
             displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
-            fileName=os.path.basename(self.output_path) if self.output_path else "",
+            fileName=getattr(self.controller, "selected_file_name", ""),
         )
         
         safe_cleanup()
