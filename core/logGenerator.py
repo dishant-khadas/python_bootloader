@@ -27,13 +27,15 @@ import requests
 
 # Remote logging API endpoint
 # TODO: Move to config.py for consistency
-API_URL = "http://192.168.1.171:3000/api/logs/data-log"
+API_URL = "https://bootloader.czarmetricsystem.com/api/logs/data-log"
 
 # Global counter for log serial numbers
 next_serial_number = 1
 
-# Path to local CSV log file
-csvfile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
+# Path to local CSV log file (in Logs/ folder)
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Logs")
+os.makedirs(log_dir, exist_ok=True)
+csvfile_path = os.path.join(log_dir, "logs.csv")
 
 
 def get_device_ip() -> str:
@@ -70,14 +72,16 @@ def generateLog(errorCode: str, payload: dict) -> None:
     """
     print("Generate log function called!")
 
-    request_payload = {
-        "logData": payload
-    }
+    # request_payload = {
+    #     "logData": payload
+    # }
 
+    print("Payload to Send : ", payload)
     try:
         res = requests.post(
             API_URL,
-            json=request_payload,
+            # json=request_payload,
+            json=payload,
             timeout=10
         )
 

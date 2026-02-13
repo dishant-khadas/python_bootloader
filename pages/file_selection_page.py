@@ -117,6 +117,8 @@ class FileSelectionPage(ttk.Frame):
             
             if idx < len(file_ids):
                 file_id = file_ids[idx]
+                # Store selected file name on controller for logging
+                self.controller.selected_file_name = selected_file
                 # Start download
                 download_page = self.controller.frames[DownloadPage]
                 download_page.file_id = file_id

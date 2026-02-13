@@ -24,17 +24,24 @@ Functions:
 
 import subprocess
 import platform
+import RPi.GPIO as GPIO
 
 from config import config
+
 
 # Platform detection for mock mode on Windows
 IS_WINDOWS = platform.system() == "Windows"
 
 # GPIO pin configuration from centralized config
-BL_DETECT_Pin = config.BL_DETECT_PIN
+BL_DETECT_PIN = config.BL_DETECT_PIN
 DISPLAY_ON_PIN = config.DISPLAY_ON_PIN
 GPIOCHIP = config.GPIOCHIP
 
+
+## GPIO lib configuration
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(DISPLAY_ON_PIN, GPIO.OUT)
+GPIO.setup(BL_DETECT_PIN, GPIO.OUT)
 
 def run_cmd(cmd: str) -> None:
     """
@@ -67,9 +74,17 @@ def turn_BL_Detect_High() -> None:
     This signals to the connected hardware that the bootloader
     programming mode should be activated.
     """
-    run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_Pin}=1")
+
+
+
+
+## Below line used in  ubuntu 24.0 LTS os
+##    run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_PIN}=1")
+   
+    GPIO.output(BL_DETECT_PIN,GPIO.HIGH)
+    print("BL Pin High")
     if not IS_WINDOWS:
-        print(f"GPIO {BL_DETECT_Pin} HIGH")
+       	print(f"GPIO {BL_DETECT_PIN} HIGH")
 
 
 def turn_BL_Detect_Low() -> None:
@@ -79,9 +94,15 @@ def turn_BL_Detect_Low() -> None:
     This signals to the connected hardware that the bootloader
     programming mode should be deactivated.
     """
-    run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_Pin}=0")
+   
+    
+    GPIO.output(BL_DETECT_PIN, GPIO.LOW)
+    print("BL DETECT TURNED LOW!") 
+
+    ## This command is used in ubuntu  24.0 LTS 
+    ##run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_PIN}=0")
     if not IS_WINDOWS:
-        print(f"GPIO {BL_DETECT_Pin} LOW")
+        print(f"GPIO {BL_DETECT_PIN} LOW")
 
 
 def turn_display_On() -> None:
@@ -90,7 +111,13 @@ def turn_display_On() -> None:
     
     This activates power to the connected display unit.
     """
-    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=1")
+
+
+    GPIO.output(DISPLAY_ON_PIN, GPIO.HIGH) 
+    print("DISPLAY TURNED ON!") 
+
+## Below command was used in ubuntu 24.0 LTS
+##    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=1")
     print("DISPLAY ON")
 
 
@@ -100,7 +127,11 @@ def turn_display_Off() -> None:
     
     This cuts power to the connected display unit.
     """
-    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=0")
+    GPIO.output(DISPLAY_ON_PIN, GPIO.LOW) 
+    print("DISPLAY TURNED OFF!") 
+
+## This command is used to run in ubuntu 24.0 LTS
+##    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=0")
     print("DISPLAY OFF")
 
 
