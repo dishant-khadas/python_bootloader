@@ -27,7 +27,7 @@ import requests
 
 # Remote logging API endpoint
 # TODO: Move to config.py for consistency
-API_URL = "http://192.168.1.171:3000/api/logs/data-log"
+API_URL = "https://bootloader.czarmetricsystem.com/api/logs/data-log"
 
 # Global counter for log serial numbers
 next_serial_number = 1
