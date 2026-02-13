@@ -143,7 +143,7 @@ def read_du_from_serial(
                 safe_cleanup()
                 ser.close()
                 callback_ui_error("E31 - No Data Received During Handshake")
-                write_log("E-31", "No Data Received", "Failed", "No Data Received During Handshake", config.DEVICE_ID, phoneNo, "", "", "")
+                write_log("E-31", "No Data Received", "Fail", "No Data Received During Handshake", config.DEVICE_ID, phoneNo, "", "", "")
                 return
 
             # Also timeout if we've been waiting too long even with partial data
@@ -216,7 +216,7 @@ def read_du_from_serial(
             else:
                 callback_ui_message(f"CRC Mismatch: Calc {little_end} vs Recv {crc_recv}")
                 safe_cleanup()
-                write_log("E-42", "Invalid Data Received", "Failed", f"CRC Mismatch: Calculated {little_end} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
+                write_log("E-42", "Invalid Data Received", "Fail", f"CRC Mismatch: Calculated {little_end} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
                 callback_ui_error("E52 - Invalid Data Received")
                 return
 
@@ -261,17 +261,17 @@ def read_du_from_serial(
                         
                         validated = True
                     else:
-                        write_log("E-42", "Invalid Data Received", "Failed", f"CRC fail after decrypt: Calculated {little_end} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
+                        write_log("E-42", "Invalid Data Received", "Fail", f"CRC fail after decrypt: Calculated {little_end} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
                         callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
                         return
                 else:
-                    write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
+                    write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
                     callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
                     return
 
             except Exception as e:
                 safe_cleanup()
-                write_log("E-42", "Invalid Data Received", "Failed", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
+                write_log("E-42", "Invalid Data Received", "Fail", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
                 callback_ui_error(f"E52 - Decrypt failed: {e}")
                 return
 
@@ -279,13 +279,13 @@ def read_du_from_serial(
             # Case where one matches and other doesn't (SOP=2a but EOP!=3c, etc.)
             callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
             safe_cleanup()
-            write_log("E-42", "Invalid Data Received", "Failed", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
+            write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
             callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
             return
 
         if not validated:
             safe_cleanup()
-            write_log("E-42", "Invalid Data Received", "Failed", "Verification Failed - Data could not be validated", config.DEVICE_ID, phoneNo, "", "", "")
+            write_log("E-42", "Invalid Data Received", "Fail", "Verification Failed - Data could not be validated", config.DEVICE_ID, phoneNo, "", "", "")
             callback_ui_error("E52 - Verification Failed")
             return
 
@@ -303,7 +303,7 @@ def read_du_from_serial(
         du_str = str(du_number)
         if len(du_str) != 8 or not du_str.startswith("99"):
             safe_cleanup()
-            write_log("E-58", "Invalid DU Number Received", "Failed", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), "", "")
+            write_log("E-58", "Invalid DU Number Received", "Fail", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), "", "")
             callback_ui_error(f"E58 - Invalid DU Number Received: {du_number}")
             return
 
@@ -311,7 +311,7 @@ def read_du_from_serial(
         display_str = str(display_number)
         if len(display_str) != 8 or not display_str.startswith("12"):
             safe_cleanup()
-            write_log("E-58", "Invalid Display Number Received", "Failed", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
+            write_log("E-58", "Invalid Display Number Received", "Fail", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
             callback_ui_error(f"E58 - Invalid Display Number Received: {display_number}")
             return
 

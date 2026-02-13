@@ -82,7 +82,7 @@ def login_api(phone: str, password: str) -> tuple[bool, str, str]:
 
         # Log failed login attempt
         print("Login Failed")
-        write_log("E-51", "Login Failed", "Failed", "Invalid Credentials", device_id, phone, "", "", "")
+        write_log("E-51", "Login Failed", "Fail", "Invalid Credentials", device_id, phone, "", "", "")
         return False, "Invalid phone or password", "login_failed"
 
     except requests.exceptions.ConnectionError as e:

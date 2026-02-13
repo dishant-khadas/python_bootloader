@@ -260,7 +260,7 @@ class FirmwareUpdatePage(ttk.Frame):
         write_log(
             errorCode="E-15",
             errorName="Firmware Update Failed",
-            result="Failed",
+            result="Fail",
             description=error_msg,
             device_id=config.DEVICE_ID,
             phoneNo=getattr(self.controller, "phone", ""),
