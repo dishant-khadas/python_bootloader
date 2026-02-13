@@ -10,7 +10,7 @@ import time
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import PRIMARY, SECONDARY, INFO
 
-from t9_keypad import T9Keypad
+from utils.t9_keypad import T9Keypad
 from utils.wifi_utils import connect_wifi, check_internet, wait_for_wifi_connected, disconnect_wifi
 
 

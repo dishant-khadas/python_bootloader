@@ -38,6 +38,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 import boto3
 import requests
+from utils.logger import logger
 
 
 def calculate_crc16(data: bytes) -> int:
@@ -180,7 +181,7 @@ def decrypt_key_kms(ciphertext: bytes, region: str = "ap-south-1") -> bytes | No
         resp = client.decrypt(CiphertextBlob=ciphertext)
         return resp.get("Plaintext")
     except Exception as e:
-        print("decrypt_key_kms error:", e)
+        logger.error(f"decrypt_key_kms error: {e}")
         return None
 
 
@@ -225,7 +226,7 @@ def format_hash_to_64_bytes(hex_hash: str) -> bytes | bool:
 
         return bytes(final)
     except Exception as e:
-        print("format_hash_to_64_bytes error:", e)
+        logger.error(f"format_hash_to_64_bytes error: {e}")
         return False
 
 
@@ -254,7 +255,7 @@ def exec_command(command: str | list[str], ssid: str | None = None, use_array: b
         exec_command("nmcli radio wifi on")
     """
     try:
-        print("Running:", command if isinstance(command, str) else " ".join(command))
+        logger.debug(f"Running: {command if isinstance(command, str) else " ".join(command)}")
         
         if use_array and isinstance(command, list):
             # SECURE: Array-based command with shell=False prevents injection
@@ -269,12 +270,12 @@ def exec_command(command: str | list[str], ssid: str | None = None, use_array: b
         
         # Detect WiFi connection success
         if ssid and ("successfully activated" in out or "successfully activated" in completed.stdout.lower()):
-            print("Connection Success", ssid)
+            logger.info(f"Connection Success {ssid}")
         return out
     except subprocess.CalledProcessError as e:
         stderr = e.stderr or ""
         if "No network" in stderr:
-            print("Unable to find network")
+            logger.warning("Unable to find network")
         raise
 
 
@@ -309,7 +310,7 @@ def run_commands(values: dict) -> str:
         )
         return out
     except Exception as e:
-        print("run_commands error:", e)
+        logger.error(f"run_commands error: {e}")
         raise
 
 
@@ -327,7 +328,7 @@ def check_connection(timeout: int = 5) -> bool:
         resp = requests.get("https://www.google.com", timeout=timeout)
         return resp.status_code == 200
     except Exception as e:
-        print("No Internet Connection:", e)
+        logger.info(f"No Internet Connection: {e}")
         return False
 
 

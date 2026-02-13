@@ -24,6 +24,7 @@ import csv
 import datetime
 import socket
 import requests
+from utils.logger import logger
 
 # Remote logging API endpoint
 # TODO: Move to config.py for consistency
@@ -70,13 +71,11 @@ def generateLog(errorCode: str, payload: dict) -> None:
         errorCode (str): The error code (e.g., "E-51", "E-15").
         payload (dict): Dictionary containing log data fields (includes errorCode).
     """
-    print("Generate log function called!")
-
-    # request_payload = {
+    logger.info("Generate log function called!")
     #     "logData": payload
     # }
 
-    print("Payload to Send : ", payload)
+    logger.info(f"Payload to Send :  {payload}")
     try:
         res = requests.post(
             API_URL,
@@ -85,17 +84,17 @@ def generateLog(errorCode: str, payload: dict) -> None:
             timeout=10
         )
 
-        print("[LOG API] Status Code:", res.status_code)
-        print("[LOG API] Response:", res.text)
+        logger.info(f"[LOG API] Status Code: {res.status_code}")
+        logger.info(f"[LOG API] Response: {res.text}")
 
     except requests.exceptions.Timeout:
-        print("[LOG API] Request timed out")
+        logger.info("[LOG API] Request timed out")
 
     except requests.exceptions.ConnectionError:
-        print("[LOG API] Server unreachable")
+        logger.info("[LOG API] Server unreachable")
 
     except Exception as e:
-        print("[LOG API] Unexpected error:", str(e))
+        logger.error(f"[LOG API] Unexpected error: {str(e)}")
 
 
 def write_log(
@@ -158,7 +157,7 @@ def write_log(
                 else:
                     next_serial_number = 1
     except Exception as e:
-        print("E41 - Log File not Found:", e)
+        logger.info(f"E41 - Log File not Found: {e}")
         return
 
     # Get device IP address
@@ -202,10 +201,9 @@ def write_log(
     try:
         with open(csvfile_path, "a", newline="") as f:
             csv.writer(f).writerow(csv_row)
-        print("File has been written")
+        logger.info("File has been written")
         generateLog(errorCode, log_payload)
     except Exception as e:
-        print("E43 - Error writing Log:", e)
-        # Still try to send to Node.js server even if CSV write fails
+        logger.info(f"E43 - Error writing Log: {e}")
         generateLog(errorCode, log_payload)
         return

@@ -58,41 +58,41 @@ def login_api(phone: str, password: str) -> tuple[bool, str, str]:
         "deviceID": '41999990'
     }
 
-    print("\n---- LOGIN API CALL ----")
-    print("URL:", API_URL)
-    print("Payload:", payload)
+    logger.debug(\"Initiating login API call\")
+    logger.debug(f"URL: {API_URL}")
+    logger.debug(f"Payload: {{phoneNo: '{phone}', password: [REDACTED]}}")
 
     try:
         res = requests.post(API_URL, json=payload, timeout=10)
 
-        print("Status Code:", res.status_code)
-        print("Raw Response:", res.text)
+        logger.debug(f"Status Code: {res.status_code}")
+        logger.debug(f"Response length: {len(res.text)} chars")
 
         try:
             data = res.json()
-            print("Parsed JSON:", data)
+            logger.debug("JSON parsed successfully")
         except Exception:
-            print("JSON Parse Failed")
+            logger.warning("JSON parse failed")
 
 
         if res.status_code == 200:
             data = res.json()
             if "token" in data:
-                print("Login Success!")  # SECURITY: Do not log token
+                logger.info(f"Login successful for phone: {phone}")
                 return True, data["token"], "success"
 
         # Log failed login attempt
-        print("Login Failed")
+        logger.warning(f"Login failed for phone: {phone}")
         write_log("E-51", "Login Failed", "Fail", "Invalid Credentials", device_id, phone, "", "", "")
         return False, "Invalid phone or password", "login_failed"
 
     except requests.exceptions.ConnectionError as e:
-        print("API CONNECTION ERROR:", str(e))
+        logger.error(f"API connection error: {e}")
         return False, "No internet connection", "network_error"
     except requests.exceptions.Timeout as e:
-        print("API TIMEOUT ERROR:", str(e))
+        logger.error(f"API timeout: {e}")
         return False, "Connection timeout - please check your internet", "network_error"
     except Exception as e:
-        print("API ERROR:", str(e))
+        logger.error(f"Unexpected API error: {e}", exc_info=True)
         return False, f"Network error: {str(e)}", "network_error"
 

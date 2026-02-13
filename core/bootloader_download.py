@@ -50,6 +50,7 @@ from core.logGenerator import write_log
 from utils.decrypt_utils import encrypt_hex_block
 
 from dotenv import load_dotenv
+from utils.logger import logger
 load_dotenv()
 
 
@@ -145,8 +146,8 @@ def download_and_flash(file_id: str,
         encrypted_hash = resp.headers.get("x-encrypted-file-hash") or resp.headers.get("X-Encrypted-File-Hash")
         encrypted_key_hdr = resp.headers.get("x-encrypted-key") or resp.headers.get("X-Encrypted-Key")
 
-        print("original hash : ", original_hash)
-        print("encrypted hash: ", encrypted_hash)
+        logger.info(f"original hash :  {original_hash}")
+        logger.info(f"encrypted hash:  {encrypted_hash}")
 
         if not original_hash or not encrypted_hash or not encrypted_key_hdr:
             callback_error("Missing required headers from server")
@@ -155,7 +156,7 @@ def download_and_flash(file_id: str,
         # 2) Validate encrypted file hash
         callback_message("Checking file ....")
         calculated_encrypted_hash = sha256_hex_of_bytes(file_bytes)
-        print("Calculated encrypted hash:", calculated_encrypted_hash)
+        logger.info(f"Calculated encrypted hash: {calculated_encrypted_hash}")
         if calculated_encrypted_hash != encrypted_hash:
             write_log(
                 errorCode="E-23",
@@ -206,8 +207,8 @@ def download_and_flash(file_id: str,
         callback_message("Decrypted file. Verifying original hash...")
 
         calc_orig_hash = sha256_hex_of_bytes(decrypted_bytes)
-        print("Calculated original hash:", calc_orig_hash)
-        print("Expected original hash:", original_hash)
+        logger.info(f"Calculated original hash: {calc_orig_hash}")
+        logger.info(f"Expected original hash: {original_hash}")
         if calc_orig_hash != original_hash:
             write_log(
                 errorCode="E-24",
@@ -227,14 +228,14 @@ def download_and_flash(file_id: str,
 
         # 4) Prepare final hash packet (formatHashTo64Bytes)
         final_packet = format_hash_to_64_bytes(original_hash)
-        print("Final packet (hex) dishant1: ", final_packet)
-        print("Final packet (hex) dishant2: ", final_packet.hex())
+        logger.debug(f"Final packet (hex) dishant1:  {final_packet}")
+        logger.debug(f"Final packet (hex) dishant2:  {final_packet.hex()}")
         if final_packet is False:
             callback_error("Failed to format final packet")
             return False
 
         # If encryption is enabled for the DU, encrypt final packet before sending (placeholder)
-        print("is enc enabled : ", is_encryption_enable)
+        logger.info(f"is enc enabled :  {is_encryption_enable}")
         if is_encryption_enable:
             callback_message("Encrypting final packet...")
             try:
@@ -264,8 +265,8 @@ def download_and_flash(file_id: str,
             return False
 
         try:
-            print("Writing final packet to serial...")
-            print("Final packet (hex) : ", final_packet.hex())
+            logger.info("Writing final packet to serial...")
+            logger.debug(f"Final packet (hex) :  {final_packet.hex()}")
             ser.write(final_packet)
             ser.flush()
             callback_message("Final packet written to serial. Closing port...")
@@ -290,7 +291,7 @@ def download_and_flash(file_id: str,
             output_path = os.path.join(temp_dir, "decrypted_firmware.bin")
             with open(output_path, "wb") as f:
                 f.write(decrypted_bytes)
-            print(f"Decrypted firmware saved to: {output_path}")
+            logger.debug(f"Decrypted firmware saved to: {output_path}")
         except Exception as e:
             callback_error(f"Failed to save decrypted file: {e}")
             return False
