@@ -70,14 +70,16 @@ def generateLog(errorCode: str, payload: dict) -> None:
     """
     print("Generate log function called!")
 
-    request_payload = {
-        "logData": payload
-    }
+    # request_payload = {
+    #     "logData": payload
+    # }
 
+    print("Payload to Send : ", payload)
     try:
         res = requests.post(
             API_URL,
-            json=request_payload,
+            # json=request_payload,
+            json=payload,
             timeout=10
         )
 
