@@ -21,7 +21,11 @@ Functions:
 """
 
 from Crypto.Cipher import AES
-from utils.encKey import AES_KEY, AES_IV
+from config import config
+
+# SECURITY FIX: Load keys from config (environment) instead of hardcoded file
+AES_KEY = config.AES_KEY
+AES_IV = config.AES_IV
 
 
 def decrypt_hex_block(encrypted_hex: str) -> str:

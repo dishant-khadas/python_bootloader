@@ -49,6 +49,42 @@ class Config:
     
     # Logging
     LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
+    
+    # Encryption Keys (SECURITY: Load from environment, not hardcoded)
+    # These are AES-256-CBC encryption keys used for firmware decryption
+    AES_KEY_HEX = os.getenv("AES_KEY_HEX")
+    AES_IV_HEX = os.getenv("AES_IV_HEX")
+    
+    # Parse hex keys to bytes (only if provided in environment)
+    AES_KEY: bytes | None = None
+    AES_IV: bytes | None = None
+    
+    if AES_KEY_HEX and AES_IV_HEX:
+        try:
+            AES_KEY = bytes.fromhex(AES_KEY_HEX)
+            AES_IV = bytes.fromhex(AES_IV_HEX)
+            
+            # Validate key sizes
+            if len(AES_KEY) != 32:  # 256-bit key
+                raise ValueError(f"AES_KEY must be 32 bytes (256 bits), got {len(AES_KEY)} bytes")
+            if len(AES_IV) != 16:   # 128-bit IV
+                raise ValueError(f"AES_IV must be 16 bytes (128 bits), got {len(AES_IV)} bytes")
+                
+            print(f"✓ Encryption keys loaded from environment (Key: {len(AES_KEY)} bytes, IV: {len(AES_IV)} bytes)")
+        except ValueError as e:
+            raise ValueError(f"Invalid encryption key format in environment: {e}")
+    else:
+        # Fallback: Try to load from utils/encKey.py (legacy support)
+        # WARNING: This is insecure and should only be used for development
+        try:
+            from utils.encKey import AES_KEY as LEGACY_KEY, AES_IV as LEGACY_IV
+            AES_KEY = LEGACY_KEY
+            AES_IV = LEGACY_IV
+            print("⚠️  WARNING: Using legacy hardcoded keys from utils/encKey.py")
+            print("⚠️  For production, set AES_KEY_HEX and AES_IV_HEX in environment")
+        except ImportError:
+            # No keys available - this is OK for features that don't need encryption
+            print("ℹ️  No encryption keys configured (neither environment nor legacy file)")
 
 
 # Create a singleton instance for easy access
