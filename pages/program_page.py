@@ -129,9 +129,10 @@ class ProgramPage(ttk.Frame):
         disp_num = data.get("displayNumber")
         enc_key = data.get("encryptionKey")
 
+
         print("SUCCESS — DU List:", options)
         if enc_key:
-            print(f"Encryption key stored (hex): {enc_key.hex()}")
+            print(f"Encryption key stored: {len(enc_key)} bytes")  # SECURITY: Only log length
         
         # Save info
         self.controller.du_options = options

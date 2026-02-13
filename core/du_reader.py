@@ -247,13 +247,13 @@ def read_du_from_serial(
                         is_encryption_enable = True
                         # Extract encryption key from bytes 395-427 (32 bytes) - this key is encrypted
                         encrypted_key_bytes = buffer_bytes[ENCRYPTED_KEY_START:ENCRYPTED_KEY_END]
-                        print(f"Extracted encrypted key (hex): {encrypted_key_bytes.hex()}")
+                        print(f"Extracted encrypted key: {len(encrypted_key_bytes)} bytes")  # SECURITY: Only log length
                         
                         # Decrypt the key using AES-256-CBC with keys from encKey.py
                         try:
                             decrypted_key_hex = decrypt_hex_block(encrypted_key_bytes.hex())
                             encryption_key = bytes.fromhex(decrypted_key_hex)
-                            print(f"Decrypted encryption key (hex): {encryption_key.hex()}")
+                            print(f"Decrypted encryption key: {len(encryption_key)} bytes")  # SECURITY: Only log length
                         except Exception as decrypt_err:
                             print(f"Warning: Failed to decrypt encryption key: {decrypt_err}")
                             # Fallback to using the raw extracted key

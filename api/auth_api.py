@@ -74,10 +74,11 @@ def login_api(phone: str, password: str) -> tuple[bool, str, str]:
         except Exception:
             print("JSON Parse Failed")
 
+
         if res.status_code == 200:
             data = res.json()
             if "token" in data:
-                print("Login Success! Token:", data["token"])
+                print("Login Success!")  # SECURITY: Do not log token
                 return True, data["token"], "success"
 
         # Log failed login attempt

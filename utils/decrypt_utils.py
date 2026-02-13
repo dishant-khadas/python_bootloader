@@ -51,8 +51,8 @@ def decrypt_hex_block(encrypted_hex: str) -> str:
     """
     encrypted_bytes = bytes.fromhex(encrypted_hex)
 
-    print("AES_KEY:", AES_KEY.hex())
-    print("AES_IV:", AES_IV.hex())
+    # SECURITY: Never log actual encryption keys
+    print(f"Decrypting with AES key: {len(AES_KEY)} bytes, IV: {len(AES_IV)} bytes")
 
     cipher = AES.new(AES_KEY, AES.MODE_CBC, AES_IV)
     decrypted = cipher.decrypt(encrypted_bytes)
