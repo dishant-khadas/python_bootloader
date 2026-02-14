@@ -27,6 +27,7 @@ btl_host.py
 utils/encKey.py
 
 # Logging
+Logs/Display_log.csv
 logs/
 *.log
 
