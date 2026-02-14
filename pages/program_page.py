@@ -12,6 +12,7 @@ from ttkbootstrap.constants import PRIMARY, WARNING
 
 from utils.gpio_control import safe_cleanup
 from core.du_reader import read_du_from_serial
+from utils.logger import logger
 
 
 class ProgramPage(ttk.Frame):
@@ -52,20 +53,18 @@ class ProgramPage(ttk.Frame):
         from pages.download_page import DownloadPage
         from pages.login_page import LoginPage
         
-        print("Starting Program Logic - Fetching from Server")
-        
-        # Show download page as loading screen
+        logger.info("Starting Program Logic - Fetching from Server")
         dp = self.controller.frames[DownloadPage]
         dp.file_id = None
         dp.status_label.config(text="Please Wait...")
         self.controller.show_frame(DownloadPage)
         
         def ui_message(msg):
-            print("STATUS:", msg)
+            logger.info(f"STATUS: {msg}")
             self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def ui_error(msg):
-            print("ERROR:", msg)
+            logger.error(f"ERROR: {msg}")
             safe_cleanup()
             self.controller.after(0, lambda: self.controller.show_error(
                 "FAILED TO HANDSHAKE", msg, LoginPage
@@ -94,14 +93,14 @@ class ProgramPage(ttk.Frame):
         self.controller.show_frame(DownloadPage)
 
         def on_ui_message(msg):
-            print(f"[DU Reader] {msg}")
+            logger.info(f"[DU Reader] {msg}")
             self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def on_ui_success(data):
             self.controller.after(0, lambda: self.ui_success(data))
 
         def on_ui_error(err_msg):
-            print(f"[DU Reader Error] {err_msg}")
+            logger.info(f"[DU Reader Error] {err_msg}")
             self.controller.after(0, lambda: self.controller.show_error(
                 "FAILED TO HANDSHAKE", err_msg, ProgramPage
             ))
@@ -129,9 +128,10 @@ class ProgramPage(ttk.Frame):
         disp_num = data.get("displayNumber")
         enc_key = data.get("encryptionKey")
 
-        print("SUCCESS — DU List:", options)
+
+        logger.info(f"SUCCESS — DU List: {options}")
         if enc_key:
-            print(f"Encryption key stored (hex): {enc_key.hex()}")
+            logger.info(f"Encryption key stored: {len(enc_key)} bytes")
         
         # Save info
         self.controller.du_options = options
@@ -145,7 +145,7 @@ class ProgramPage(ttk.Frame):
         file_ids = options.get("fileId", [])
         
         if len(file_names) == 1 and len(file_ids) == 1:
-            print(f"Auto-downloading single file: {file_names[0]}")
+            logger.info(f"Auto-downloading single file: {file_names[0]}")
             self.controller.selected_file_name = file_names[0]
             download_page = self.controller.frames[DownloadPage]
             download_page.file_id = file_ids[0]
@@ -156,5 +156,5 @@ class ProgramPage(ttk.Frame):
     def ui_error(self, msg):
         """Handle DU detection error."""
         from tkinter import messagebox
-        print("ERROR:", msg)
+        logger.error(f"ERROR: {msg}")
         messagebox.showerror("Error", msg)

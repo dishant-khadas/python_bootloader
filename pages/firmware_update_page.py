@@ -16,6 +16,7 @@ from ttkbootstrap.constants import INFO
 from config import config
 from utils.gpio_control import safe_cleanup, turn_display_Off
 from core.logGenerator import write_log
+from utils.logger import logger
 
 
 class FirmwareUpdatePage(ttk.Frame):
@@ -98,8 +99,8 @@ class FirmwareUpdatePage(ttk.Frame):
             default_btl_path = os.path.join(base_dir, "btl_host.py")
             btl_host_path = os.getenv("BTL_HOST_PATH", default_btl_path)
             
-            print(f"[DEBUG] Looking for btl_host.py at: {btl_host_path}")
-            print(f"[DEBUG] File exists: {os.path.exists(btl_host_path)}")
+            logger.info(f"[DEBUG] Looking for btl_host.py at: {btl_host_path}")
+            logger.info(f"[DEBUG] File exists: {os.path.exists(btl_host_path)}")
             python_path = os.getenv("PYTHON_PATH", "python3")
             serial_port = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
             
@@ -116,9 +117,7 @@ class FirmwareUpdatePage(ttk.Frame):
                 "-f", self.output_path
             ]
             
-            print(f"[FIRMWARE UPDATE] Running command: {' '.join(cmd)}")
-            
-            # Run process
+            logger.info(f"[FIRMWARE UPDATE] Running command: {' '.join(cmd)}")
             self.process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -132,9 +131,7 @@ class FirmwareUpdatePage(ttk.Frame):
                 for line in iter(self.process.stdout.readline, ''):
                     if line:
                         output_text = line.strip()
-                        print(f"[BTL_HOST STDOUT]: {output_text}")
-                        
-                        # Format percentage display
+                        logger.info(f"[BTL_HOST STDOUT]: {output_text}")
                         try:
                             float(output_text)
                             display_text = f"{output_text}%"
@@ -143,39 +140,31 @@ class FirmwareUpdatePage(ttk.Frame):
                         
                         self.controller.after(0, lambda t=display_text: self.status_label.config(text=t))
             except (BrokenPipeError, IOError) as e:
-                print(f"[FIRMWARE UPDATE] Pipe error (process may have ended): {e}")
-            
-            # Wait for completion
+                logger.info(f"[FIRMWARE UPDATE] Pipe error (process may have ended): {e}")
             self.process.wait()
             return_code = self.process.returncode
             
-            print(f"[FIRMWARE UPDATE] Process exited with code {return_code}")
-            
-            # Wait then turn off display
+            logger.info(f"[FIRMWARE UPDATE] Process exited with code {return_code}")
             time.sleep(3)
             try:
                 turn_display_Off()
             except Exception as e:
-                print(f"Warning: turn_display_Off failed: {e}")
-            
-            # Update UI based on result
+                logger.warning(f"Warning: turn_display_Off failed: {e}")
             if return_code == 0:
                 self.controller.after(0, self.on_update_success)
             else:
                 stderr_output = self.process.stderr.read()
-                print(f"[BTL_HOST STDERR]: {stderr_output}")
-                
-                # Parse error to show clean user-friendly message
+                logger.info(f"[BTL_HOST STDERR]: {stderr_output}")
                 error_detail = self._parse_btl_error(stderr_output, return_code)
                 self.controller.after(0, lambda e=error_detail: self.on_update_error(e))
                 
         except FileNotFoundError:
             error_msg = f"btl_host.py not found at {btl_host_path}"
-            print(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
+            logger.info(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
             self.controller.after(0, lambda: self.on_update_error(error_msg))
         except Exception as e:
             error_msg = f"Firmware update error: {e}"
-            print(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
+            logger.info(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
             self.controller.after(0, lambda: self.on_update_error(error_msg))
     
     def _parse_btl_error(self, stderr_output: str, return_code: int) -> str:
@@ -221,9 +210,9 @@ class FirmwareUpdatePage(ttk.Frame):
         if self.output_path and os.path.exists(self.output_path):
             try:
                 os.remove(self.output_path)
-                print(f"[CLEANUP] Deleted temp file: {self.output_path}")
+                logger.info(f"[CLEANUP] Deleted temp file: {self.output_path}")
             except Exception as e:
-                print(f"[CLEANUP WARNING] Failed to delete temp file: {e}")
+                logger.warning(f"[CLEANUP WARNING] Failed to delete temp file: {e}")
     
     def on_update_success(self):
         """Called when firmware update completes successfully."""

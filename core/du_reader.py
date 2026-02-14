@@ -43,6 +43,7 @@ from api.du_api import fetch_du_list
 from core.display_logger import write_display_log
 
 from dotenv import load_dotenv
+from utils.logger import logger
 load_dotenv()
 
 # Serial port configuration from centralized config
@@ -188,10 +189,8 @@ def read_du_from_serial(
         # SOP / EOP (JS used bufferData[0] and bufferData[509])
         SOP = f"{buffer_bytes[0]:02x}"
         EOP = f"{buffer_bytes[509]:02x}"
-        print("buffer len : ", len(buffer_bytes))
-        print(f"SOP: {SOP}, EOP: {EOP}")
-
-        # firmware bytes
+        logger.debug(f"buffer len :  {len(buffer_bytes)}")
+        logger.info(f"SOP: {SOP}, EOP: {EOP}")
         firmware_v1 = buffer_bytes[393]
         firmware_v2 = buffer_bytes[394]
 
@@ -203,7 +202,7 @@ def read_du_from_serial(
 
         if SOP == "2a" and EOP == "3c":
             # unencrypted; check CRC
-            print("without encryption")
+            logger.info("without encryption")
             callback_ui_message("SOP/EOP matched (unencrypted). Checking CRC...")
             
             crc_calc = calculate_crc16(buffer_bytes[:510])  # int
@@ -222,14 +221,13 @@ def read_du_from_serial(
 
         elif SOP != "2a" and EOP != "3c":
             # encrypted
-            print("with encryption")
+            logger.info("with encryption")
             callback_ui_message("Encrypted data detected (SOP/EOP mismatch)...")
             try:
                 # Decrypt receives hex string
-                print("first_block_hex:", first_block_hex)
+                logger.debug(f"first_block_hex: {first_block_hex}")
                 decrypted_hex = decrypt_hex_block(first_block_hex)
-                print("decrypted_hex:", decrypted_hex)
-                # Convert to buffer
+                logger.debug(f"decrypted_hex: {decrypted_hex}")
                 buffer_bytes = bytes.fromhex(decrypted_hex)
                 
                 # Re-check SOP/EOP
@@ -247,16 +245,15 @@ def read_du_from_serial(
                         is_encryption_enable = True
                         # Extract encryption key from bytes 395-427 (32 bytes) - this key is encrypted
                         encrypted_key_bytes = buffer_bytes[ENCRYPTED_KEY_START:ENCRYPTED_KEY_END]
-                        print(f"Extracted encrypted key (hex): {encrypted_key_bytes.hex()}")
+                        logger.debug(f"Extracted encrypted key: {len(encrypted_key_bytes)} bytes")
                         
                         # Decrypt the key using AES-256-CBC with keys from encKey.py
                         try:
                             decrypted_key_hex = decrypt_hex_block(encrypted_key_bytes.hex())
                             encryption_key = bytes.fromhex(decrypted_key_hex)
-                            print(f"Decrypted encryption key (hex): {encryption_key.hex()}")
+                            logger.debug(f"Decrypted encryption key: {len(encryption_key)} bytes")
                         except Exception as decrypt_err:
-                            print(f"Warning: Failed to decrypt encryption key: {decrypt_err}")
-                            # Fallback to using the raw extracted key
+                            logger.warning(f"Warning: Failed to decrypt encryption key: {decrypt_err}")
                             encryption_key = encrypted_key_bytes
                         
                         validated = True
@@ -326,14 +323,12 @@ def read_du_from_serial(
         try:
             write_display_log(final_hex)
         except Exception as log_err:
-            print(f"Warning: Failed to write display log: {log_err}")
-
-        # Now call DU_Update API to get file list
+            logger.warning(f"Warning: Failed to write display log: {log_err}")
         # callback_ui_message("Querying server for DU update list...")
         
         success, options_or_msg, _ = fetch_du_list(token, du_number, display_number)
 
-        print("DU_Update API result:", success, options_or_msg)
+        logger.info(f"DU_Update API result: {success, options_or_msg}")
         
         if not success:
             if "No DU Assigned" in str(options_or_msg):

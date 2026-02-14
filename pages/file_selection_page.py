@@ -9,6 +9,7 @@ import tkinter as tk
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import SUCCESS
 from tkinter import messagebox
+from utils.logger import logger
 
 
 class FileSelectionPage(ttk.Frame):
@@ -100,20 +101,18 @@ class FileSelectionPage(ttk.Frame):
             messagebox.showwarning("Selection", "Please select a valid file.")
             return
 
-        print(f"Next Clicked. Selected: {selected_file}")
-        
-        # Get corresponding fileId
+        logger.info(f"Next Clicked. Selected: {selected_file}")
         options = getattr(self.controller, "du_options", {})
         file_names = options.get("fileName", [])
         file_ids = options.get("fileId", [])
         
         if selected_file in file_names:
             idx = file_names.index(selected_file)
-            print("---------------- DEBUG SELECTION ----------------")
-            print(f"Selected File: '{selected_file}'")
-            print(f"Index found: {idx}")
-            print(f"File Names List: {file_names}")
-            print(f"File IDs List: {file_ids}")
+            logger.debug("---------------- DEBUG SELECTION ----------------")
+            logger.info(f"Selected File: '{selected_file}'")
+            logger.info(f"Index found: {idx}")
+            logger.info(f"File Names List: {file_names}")
+            logger.info(f"File IDs List: {file_ids}")
             
             if idx < len(file_ids):
                 file_id = file_ids[idx]

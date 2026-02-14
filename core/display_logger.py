@@ -18,6 +18,7 @@ import os
 import csv
 from datetime import datetime
 from typing import Optional
+from utils.logger import logger
 
 
 def write_display_log(hex_data: str) -> None:
@@ -85,9 +86,7 @@ def write_display_log(hex_data: str) -> None:
                 if len(lines) > 1:  # Has header + data
                     serial_no = len(lines)
         except Exception as e:
-            print(f"Error reading display log: {e}")
-    
-    # CSV header
+            logger.info(f"Error reading display log: {e}")
     header = [
         "SrNO", "Date", "Time", "DuNo", "dispSrNo", "displayShaSign", "firmware", 
         "autoMode", "onoff",
@@ -125,7 +124,7 @@ def write_display_log(hex_data: str) -> None:
                 writer.writerow(header)
             writer.writerow(row)
         
-        print(f"Display log written: Serial {serial_no}")
+        logger.info(f"Display log written: Serial {serial_no}")
         
     except Exception as e:
-        print(f"Error writing display log: {e}")
+        logger.info(f"Error writing display log: {e}")

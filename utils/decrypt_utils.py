@@ -21,7 +21,12 @@ Functions:
 """
 
 from Crypto.Cipher import AES
-from utils.encKey import AES_KEY, AES_IV
+from config import config
+from utils.logger import logger
+
+# SECURITY FIX: Load keys from config (environment) instead of hardcoded file
+AES_KEY = config.AES_KEY
+AES_IV = config.AES_IV
 
 
 def decrypt_hex_block(encrypted_hex: str) -> str:
@@ -51,8 +56,8 @@ def decrypt_hex_block(encrypted_hex: str) -> str:
     """
     encrypted_bytes = bytes.fromhex(encrypted_hex)
 
-    print("AES_KEY:", AES_KEY.hex())
-    print("AES_IV:", AES_IV.hex())
+    # SECURITY: Never log actual encryption keys
+    logger.info(f"Decrypting with AES key: {len(AES_KEY)} bytes, IV: {len(AES_IV)} bytes")
 
     cipher = AES.new(AES_KEY, AES.MODE_CBC, AES_IV)
     decrypted = cipher.decrypt(encrypted_bytes)

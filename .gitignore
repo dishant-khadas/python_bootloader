@@ -22,6 +22,17 @@ __pycache__/wifi_utils.cpython-313.pyc
 .env
 logs.csv
 btl_host.py
+
+# SECURITY: Never commit encryption keys
+utils/encKey.py
+
+# Logging
+logs/
+*.log
+
+# Temporary scripts
+replace_prints.py
+
 # bin files
 temp_Encrypted.bin
 temp_Original.bin

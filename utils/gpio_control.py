@@ -27,6 +27,7 @@ import platform
 import RPi.GPIO as GPIO
 
 from config import config
+from utils.logger import logger
 
 
 # Platform detection for mock mode on Windows
@@ -57,14 +58,14 @@ def run_cmd(cmd: str) -> None:
         subprocess.CalledProcessError: If the command fails (caught and logged).
     """
     if IS_WINDOWS:
-        print(f"[MOCK-GPIO] Would execute: {cmd}")
+        logger.info(f"[MOCK-GPIO] Would execute: {cmd}")
         return
 
     try:
-        print("Executing:", cmd)
+        logger.info(f"Executing: {cmd}")
         subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
-        print("GPIO Command Error:", e)
+        logger.error(f"GPIO Command Error: {e}")
 
 
 def turn_BL_Detect_High() -> None:
@@ -82,9 +83,9 @@ def turn_BL_Detect_High() -> None:
 ##    run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_PIN}=1")
    
     GPIO.output(BL_DETECT_PIN,GPIO.HIGH)
-    print("BL Pin High")
+    logger.info("BL Pin High")
     if not IS_WINDOWS:
-       	print(f"GPIO {BL_DETECT_PIN} HIGH")
+       	logger.info(f"GPIO {BL_DETECT_PIN} HIGH")
 
 
 def turn_BL_Detect_Low() -> None:
@@ -97,12 +98,10 @@ def turn_BL_Detect_Low() -> None:
    
     
     GPIO.output(BL_DETECT_PIN, GPIO.LOW)
-    print("BL DETECT TURNED LOW!") 
-
-    ## This command is used in ubuntu  24.0 LTS 
+    logger.info("BL DETECT TURNED LOW!")
     ##run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_PIN}=0")
     if not IS_WINDOWS:
-        print(f"GPIO {BL_DETECT_PIN} LOW")
+        logger.info(f"GPIO {BL_DETECT_PIN} LOW")
 
 
 def turn_display_On() -> None:
@@ -114,11 +113,9 @@ def turn_display_On() -> None:
 
 
     GPIO.output(DISPLAY_ON_PIN, GPIO.HIGH) 
-    print("DISPLAY TURNED ON!") 
-
-## Below command was used in ubuntu 24.0 LTS
+    logger.info("DISPLAY TURNED ON!")
 ##    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=1")
-    print("DISPLAY ON")
+    logger.info("DISPLAY ON")
 
 
 def turn_display_Off() -> None:
@@ -128,11 +125,9 @@ def turn_display_Off() -> None:
     This cuts power to the connected display unit.
     """
     GPIO.output(DISPLAY_ON_PIN, GPIO.LOW) 
-    print("DISPLAY TURNED OFF!") 
-
-## This command is used to run in ubuntu 24.0 LTS
+    logger.info("DISPLAY TURNED OFF!")
 ##    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=0")
-    print("DISPLAY OFF")
+    logger.info("DISPLAY OFF")
 
 
 def safe_cleanup() -> None:
@@ -149,12 +144,12 @@ def safe_cleanup() -> None:
     try:
         turn_BL_Detect_Low()
     except Exception as e:
-        print(f"Warning: turn_BL_Detect_Low failed: {e}")
+        logger.warning(f"Warning: turn_BL_Detect_Low failed: {e}")
     
     try:
         turn_display_Off()
     except Exception as e:
-        print(f"Warning: turn_display_Off failed: {e}")
+        logger.warning(f"Warning: turn_display_Off failed: {e}")
 
 
 def safe_bl_low() -> None:
@@ -168,4 +163,4 @@ def safe_bl_low() -> None:
     try:
         turn_BL_Detect_Low()
     except Exception as e:
-        print(f"Warning: turn_BL_Detect_Low failed: {e}")
+        logger.warning(f"Warning: turn_BL_Detect_Low failed: {e}")

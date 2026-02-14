@@ -22,6 +22,7 @@ import subprocess
 import platform
 import time
 import socket
+from utils.logger import logger
 
 # Platform detection for command selection
 IS_WINDOWS = platform.system() == "Windows"
@@ -61,10 +62,10 @@ def scan_wifi() -> list[str]:
             
             return ssids if ssids else ["No networks found"]
         except subprocess.CalledProcessError as e:
-            print(f"Error scanning WiFi: {e}")
+            logger.info(f"Error scanning WiFi: {e}")
             return ["Error: WiFi adapter may be disabled"]
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            logger.error(f"Unexpected error: {e}")
             return ["Error scanning networks"]
         
     # Linux/Raspberry Pi - use nmcli
@@ -165,7 +166,7 @@ def connect_wifi(ssid: str, password: str) -> bool:
                     pass
                     
         except Exception as e:
-            print(f"Error connecting to WiFi: {e}")
+            logger.info(f"Error connecting to WiFi: {e}")
             return False
 
     # Linux/Raspberry Pi - use nmcli
@@ -176,8 +177,15 @@ def connect_wifi(ssid: str, password: str) -> bool:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        cmd = f"nmcli dev wifi connect '{ssid}' password '{password}'"
-        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # SECURITY FIX: Use array-based command to prevent injection attacks
+        # Old vulnerable code: f"nmcli dev wifi connect '{ssid}' password '{password}'"
+        # Attack vector: password = "'; rm -rf / #" would execute arbitrary commands
+        result = subprocess.run(
+            ["nmcli", "dev", "wifi", "connect", ssid, "password", password],
+            shell=False,  # CRITICAL: shell=False prevents command injection
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
         return result.returncode == 0
     except:
         return False
@@ -307,7 +315,7 @@ def get_connected_ssid() -> str | None:
                             return ssid
             return None
         except Exception as e:
-            print(f"Error getting connected SSID: {e}")
+            logger.info(f"Error getting connected SSID: {e}")
             return None 
 
     # Linux/Raspberry Pi - use nmcli
