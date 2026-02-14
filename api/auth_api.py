@@ -20,6 +20,7 @@ Error Handling:
 import os
 import requests
 from core.logGenerator import write_log
+from utils.logger import logger
 
 # Authentication API endpoint
 API_URL = "https://bootloader.czarmetricsystem.com/api/auth/serviceEngineer/phonelogin"
@@ -58,7 +59,7 @@ def login_api(phone: str, password: str) -> tuple[bool, str, str]:
         "deviceID": '41999990'
     }
 
-    logger.debug(\"Initiating login API call\")
+    logger.debug("Initiating login API call")
     logger.debug(f"URL: {API_URL}")
     logger.debug(f"Payload: {{phoneNo: '{phone}', password: [REDACTED]}}")
 
