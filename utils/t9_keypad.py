@@ -84,7 +84,7 @@ class T9Keypad(tk.Frame):
             {"number": "1", "letters": ["!"], "showletters": [""]},
             {"number": "2", "letters": ["@"], "showletters": [""]},
             {"number": "3", "letters": ["#"], "showletters": [""]},
-            {"number": "4", "letters": ["$"], "showletters": [""]},
+            {"number": "4", "letters": ["+"], "showletters": [""]},
             {"number": "5", "letters": ["%"], "showletters": [""]},
             {"number": "6", "letters": ["^"], "showletters": [""]},
             {"number": "7", "letters": ["&"], "showletters": [""]},
