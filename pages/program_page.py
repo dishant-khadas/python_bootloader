@@ -49,6 +49,59 @@ class ProgramPage(ttk.Frame):
         self.status_label = ttk.Label(self, text="", font=lm.font(14), bootstyle=WARNING)
         self.status_label.pack(pady=lm.scaled(20))
 
+    def on_show(self):
+        """Called when page is shown - print current AppState for debugging."""
+        state = AppState.get_instance()
+        
+        logger.info("=" * 70)
+        logger.info("PROGRAM PAGE - Current AppState:")
+        logger.info("=" * 70)
+        
+        # Authentication
+        logger.info("Authentication:")
+        logger.info(f"  Phone Number: {state.phone_number or 'Not set'}")
+        logger.info(f"  JWT Token: {'Present' if state.jwt_token else 'Not set'}")
+        if state.jwt_token:
+            logger.info(f"    Token (first 20 chars): {state.jwt_token[:20]}...")
+        
+        # DU/Display Information
+        logger.info("\nDU/Display Information:")
+        logger.info(f"  DU Number: {state.du_number or 'Not set'}")
+        logger.info(f"  Display Number: {state.display_number or 'Not set'}")
+        logger.info(f"  Raw 512 bytes: {'Present' if state.raw_512_bytes else 'Not set'}")
+        
+        # Bootloader Version
+        logger.info("\nBootloader Version:")
+        if state.bootloader_version:
+            logger.info(f"  Version (tuple): {state.bootloader_version}")
+            logger.info(f"  Version (string): {state.bootloader_version_string}")
+        else:
+            logger.info("  Not extracted yet")
+        
+        # Encryption
+        logger.info("\nEncryption:")
+        logger.info(f"  Encryption Enabled: {state.is_encryption_enabled}")
+        logger.info(f"  Encryption Key: {'Present (32 bytes)' if state.encryption_key else 'Not set'}")
+        if state.encryption_key:
+            logger.info(f"    Key (first 8 bytes): {state.encryption_key[:8].hex()}...")
+        
+        # Firmware Selection
+        logger.info("\nFirmware Selection:")
+        logger.info(f"  Selected File ID: {state.selected_file_id or 'Not selected'}")
+        logger.info(f"  Selected File Name: {state.selected_file_name or 'Not selected'}")
+        logger.info(f"  DU Options: {'Present' if state.du_options else 'Not set'}")
+        if state.du_options:
+            file_count = len(state.du_options.get('fileName', []))
+            logger.info(f"    Available Files: {file_count}")
+        
+        # Complete Summary
+        logger.info("\nState Summary:")
+        summary = state.get_state_summary()
+        for key, value in summary.items():
+            logger.info(f"  {key}: {value}")
+        
+        logger.info("=" * 70)
+
     def start_program_logic(self):
         """Start the DU detection and handshake process."""
         from pages.download_page import DownloadPage
