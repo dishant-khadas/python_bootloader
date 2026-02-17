@@ -74,20 +74,34 @@ def sha256_hex_of_bytes(b: bytes) -> str:
 
 def encrypt_final_packet(final_packet_bytes: bytes) -> bytes:
     """
-    Encrypt the 64-byte final packet using AES-256-CBC.
+    Encrypt the final packet (64-byte or 512-byte) using AES-256-CBC.
     
     This encryption is applied when the DU has encryption enabled,
     matching the encryption expected by the display hardware.
     
     Args:
-        final_packet_bytes (bytes): 64-byte packet containing hash data.
+        final_packet_bytes (bytes): Packet containing hash data (64 or 512 bytes).
         
     Returns:
-        bytes: Encrypted 64-byte packet.
+        bytes: Encrypted packet (same size as input).
     """
+    from utils.decrypt_utils import AES_KEY, AES_IV
+    
+    # Log packet details before encryption
+    logger.info(f"=== ENCRYPTION DEBUG ===")
+    logger.info(f"Packet size: {len(final_packet_bytes)} bytes")
+    logger.info(f"Unencrypted packet (hex): {final_packet_bytes.hex()}")
+    logger.info(f"AES Key (32 bytes): {AES_KEY.hex() if AES_KEY else 'NOT SET'}")
+    logger.info(f"AES IV (16 bytes): {AES_IV.hex() if AES_IV else 'NOT SET'}")
+    
     hex_str = final_packet_bytes.hex()
     encrypted_hex = encrypt_hex_block(hex_str)
-    return bytes.fromhex(encrypted_hex)
+    encrypted_bytes = bytes.fromhex(encrypted_hex)
+    
+    logger.info(f"Encrypted packet (hex): {encrypted_bytes.hex()}")
+    logger.info(f"========================")
+    
+    return encrypted_bytes
 
 
 
