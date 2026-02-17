@@ -139,7 +139,6 @@ class AppState:
             self._selected_file_id = None
             self._selected_file_name = None
             self._du_options = None
-            logger.info("AppState reset - all state cleared")
     
     # ========== Authentication Methods ==========
     
@@ -147,14 +146,32 @@ class AppState:
         """
         Set authentication credentials.
         
+        Automatically formats phone number to +91-XXXXXXXXXX format.
+        
         Args:
-            phone (str): User's phone number.
+            phone (str): User's phone number (will be formatted).
             token (str): JWT authentication token.
         """
         with self._lock:
-            self._phone_number = phone
+            # Format phone number as +91-XXXXXXXXXX
+            formatted_phone = phone.strip()
+            
+            if formatted_phone.startswith("+91-"):
+                # Already in correct format
+                pass
+            elif formatted_phone.startswith("+91"):
+                # Has +91 but no hyphen, add it
+                formatted_phone = "+91-" + formatted_phone[3:]
+            elif formatted_phone.startswith("+"):
+                # Has different country code, add hyphen after country code if not present
+                # For now, keep as is for non-Indian numbers
+                pass
+            else:
+                # No country code, add +91-
+                formatted_phone = "+91-" + formatted_phone
+            
+            self._phone_number = formatted_phone
             self._jwt_token = token
-            logger.info(f"Authentication set for phone: {phone}")
     
     @property
     def phone_number(self) -> Optional[str]:
@@ -220,15 +237,12 @@ class AppState:
             
             # Extract bootloader version from bytes 392-393 (0-indexed)
             # Note: Current code uses 393-394, but user confirmed 392-393 is correct
-            v1 = raw_bytes[393]
-            v2 = raw_bytes[394]
+            v1 = raw_bytes[392]
+            v2 = raw_bytes[393]
             
             self._bootloader_version = (v1, v2)
             self._bootloader_version_string = f"{v1}.{v2}"
             
-            logger.info(f"DU data set: DU={du_number}, Display={display_number}")
-            logger.info(f"Bootloader version extracted: {self._bootloader_version_string}")
-            logger.info(f"Encryption: {is_encrypted}")
     
     @property
     def du_number(self) -> Optional[str]:
@@ -319,7 +333,6 @@ class AppState:
         with self._lock:
             self._selected_file_id = file_id
             self._selected_file_name = file_name
-            logger.info(f"Firmware selected: {file_name} (ID: {file_id})")
     
     @property
     def selected_file_id(self) -> Optional[str]:
