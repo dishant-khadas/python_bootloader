@@ -193,8 +193,8 @@ def read_du_from_serial(
         logger.debug(f"buffer len :  {len(buffer_bytes)}")
         logger.info(f"SOP: {SOP}, EOP: {EOP}")
         # Bootloader version at bytes 392-393 (0-indexed)
-        firmware_v1 = buffer_bytes[392]
-        firmware_v2 = buffer_bytes[393]
+        firmware_v1 = buffer_bytes[393]
+        firmware_v2 = buffer_bytes[394]
 
         # Logic strictly mirroring JS:
         # if ( SOP === "2a" && EOP === "3c" ) { ... }
@@ -236,8 +236,8 @@ def read_du_from_serial(
                 SOP = f"{buffer_bytes[0]:02x}"
                 EOP = f"{buffer_bytes[509]:02x}"
                 # Bootloader version at bytes 392-393 (0-indexed)
-                firmware_v1 = buffer_bytes[392]
-                firmware_v2 = buffer_bytes[393]
+                firmware_v1 = buffer_bytes[393]
+                firmware_v2 = buffer_bytes[394]
 
                 if SOP == "2a" and EOP == "3c":
                     crc_calc = calculate_crc16(buffer_bytes[:510])

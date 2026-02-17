@@ -220,8 +220,8 @@ class AppState:
             
             # Extract bootloader version from bytes 392-393 (0-indexed)
             # Note: Current code uses 393-394, but user confirmed 392-393 is correct
-            v1 = raw_bytes[392]
-            v2 = raw_bytes[393]
+            v1 = raw_bytes[393]
+            v2 = raw_bytes[394]
             
             self._bootloader_version = (v1, v2)
             self._bootloader_version_string = f"{v1}.{v2}"
