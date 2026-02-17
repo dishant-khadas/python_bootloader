@@ -210,6 +210,8 @@ def read_du_from_serial(
             crc_calc = calculate_crc16(buffer_bytes[:510])  # int
             little_end = calculate_little_endian(crc_calc)
             crc_recv = buffer_bytes[510:512].hex()
+
+            
             
             if little_end == crc_recv:
                 is_encryption_enable = get_encryption_flag(firmware_v1, firmware_v2)
