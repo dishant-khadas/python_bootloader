@@ -66,9 +66,9 @@ def calculate_crc16(data: bytes) -> int:
     return crc & 0xFFFF
 
 
-def calculate_little_endian(crc: int) -> str:
+def calculate_little_endian(crc: int) -> bytes:
     """
-    Convert CRC to little-endian 4-character hex string.
+    Convert CRC to little-endian 2-byte bytes object.
     
     Swaps the high and low bytes of the CRC value, matching the
     JavaScript implementation: ((crc >> 8) | ((crc & 0xFF) << 8))
@@ -77,10 +77,11 @@ def calculate_little_endian(crc: int) -> str:
         crc (int): CRC-16 value to convert.
         
     Returns:
-        str: 4-character lowercase hex string in little-endian format.
+        bytes: 2-byte bytes object in little-endian format.
     """
     le = ((crc >> 8) | ((crc & 0xFF) << 8)) & 0xFFFF
-    return format(le, "04x")
+    # Convert to 2 bytes in little-endian order
+    return le.to_bytes(2, byteorder='little')
 
 
 def match_crc16(buffer_data: bytes) -> bool:
@@ -100,7 +101,7 @@ def match_crc16(buffer_data: bytes) -> bool:
         return False
     crc = calculate_crc16(buffer_data[:510])
     little_end = calculate_little_endian(crc)
-    return little_end == buffer_data[510:512].hex()
+    return little_end == buffer_data[510:512]
 
 
 def generate_hash(hex_data: str) -> str:
