@@ -16,6 +16,7 @@ from ttkbootstrap.constants import INFO
 from config import config
 from utils.gpio_control import safe_cleanup, turn_display_Off
 from core.logGenerator import write_log
+from core.app_state import AppState
 from utils.logger import logger
 
 
@@ -222,6 +223,49 @@ class FirmwareUpdatePage(ttk.Frame):
         self.progress.stop()
         self.status_label.config(text="Firmware updated successfully!", foreground="green")
         
+        # Print complete AppState AFTER successful firmware update
+        state = AppState.get_instance()
+        logger.info("="*80)
+        logger.info("🎉 FIRMWARE UPDATE SUCCESSFUL - Final AppState Summary")
+        logger.info("="*80)
+        
+        logger.info("\n✅ Authentication:")
+        logger.info(f"   Phone Number: {state.phone_number}")
+        logger.info(f"   JWT Token: {'Present' if state.jwt_token else 'Missing'}")
+        
+        logger.info("\n✅ Device Information:")
+        logger.info(f"   DU Number: {state.du_number}")
+        logger.info(f"   Display Number: {state.display_number}")
+        
+        logger.info("\n✅ Bootloader Version (from bytes 392-393):")
+        if state.bootloader_version:
+            logger.info(f"   Version Tuple: {state.bootloader_version}")
+            logger.info(f"   Version String: {state.bootloader_version_string}")
+        else:
+            logger.info("   Not available")
+        
+        logger.info("\n✅ Encryption:")
+        logger.info(f"   Encryption Enabled: {state.is_encryption_enabled}")
+        if state.encryption_key:
+            logger.info(f"   Encryption Key: Present (32 bytes)")
+            logger.info(f"   Key Preview: {state.encryption_key[:8].hex()}...")
+        else:
+            logger.info(f"   Encryption Key: Not required")
+        
+        logger.info("\n✅ Firmware Update:")
+        logger.info(f"   File ID: {state.selected_file_id}")
+        logger.info(f"   File Name: {state.selected_file_name}")
+        logger.info(f"   Status: Successfully Flashed ✓")
+        
+        logger.info("\n✅ Complete State Summary:")
+        summary = state.get_state_summary()
+        for key, value in summary.items():
+            logger.info(f"   {key}: {value}")
+        
+        logger.info("\n" + "="*80)
+        logger.info("✅ All operations completed successfully!")
+        logger.info("="*80 + "\n")
+        
         # Log successful firmware update
         write_log(
             errorCode="S-01",
@@ -229,10 +273,10 @@ class FirmwareUpdatePage(ttk.Frame):
             result="Success",
             description="Firmware updated successfully",
             device_id=config.DEVICE_ID,
-            phoneNo=getattr(self.controller, "phone", ""),
-            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
-            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
-            fileName=getattr(self.controller, "selected_file_name", ""),
+            phoneNo=state.phone_number or "",
+            duNumber=state.du_number or "",
+            displayNumber=state.display_number or "",
+            fileName=state.selected_file_name or "",
         )
         
         self.controller.after(3000, lambda: self.controller.show_frame(LoginPage))
