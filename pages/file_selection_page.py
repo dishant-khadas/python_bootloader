@@ -9,6 +9,7 @@ import tkinter as tk
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import SUCCESS
 from tkinter import messagebox
+from core.app_state import AppState
 from utils.logger import logger
 
 
@@ -116,8 +117,11 @@ class FileSelectionPage(ttk.Frame):
             
             if idx < len(file_ids):
                 file_id = file_ids[idx]
-                # Store selected file name on controller for logging
-                self.controller.selected_file_name = selected_file
+                
+                # Store selected file in AppState
+                state = AppState.get_instance()
+                state.set_firmware_selection(file_id, selected_file)
+                
                 # Start download
                 download_page = self.controller.frames[DownloadPage]
                 download_page.file_id = file_id

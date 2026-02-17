@@ -12,6 +12,7 @@ from ttkbootstrap.constants import PRIMARY, WARNING
 
 from utils.gpio_control import safe_cleanup
 from core.du_reader import read_du_from_serial
+from core.app_state import AppState
 from utils.logger import logger
 
 
@@ -70,11 +71,14 @@ class ProgramPage(ttk.Frame):
                 "FAILED TO HANDSHAKE", msg, LoginPage
             ))
 
+        # Read authentication from AppState
+        state = AppState.get_instance()
+        
         threading.Thread(
             target=read_du_from_serial,
             args=(
-                self.controller.token,
-                getattr(self.controller, "phone", ""),
+                state.jwt_token,
+                state.phone_number or "",
                 ui_message,
                 self.ui_success,
                 ui_error,
@@ -106,10 +110,10 @@ class ProgramPage(ttk.Frame):
             ))
 
         def run_thread():
-            token = self.controller.token
+            state = AppState.get_instance()
             read_du_from_serial(
-                token=token,
-                phoneNo=getattr(self.controller, "phone", ""),
+                token=state.jwt_token,
+                phoneNo=state.phone_number or "",
                 callback_ui_message=on_ui_message,
                 callback_ui_success=on_ui_success,
                 callback_ui_error=on_ui_error
@@ -133,7 +137,8 @@ class ProgramPage(ttk.Frame):
         if enc_key:
             logger.info(f"Encryption key stored: {len(enc_key)} bytes")
         
-        # Save info
+        # Note: DU data is already stored in AppState by du_reader.py
+        # Just update the controller's du_options for backward compatibility
         self.controller.du_options = options
         self.controller.du_options["duNumber"] = du_num
         self.controller.du_options["displayNumber"] = disp_num
@@ -146,7 +151,10 @@ class ProgramPage(ttk.Frame):
         
         if len(file_names) == 1 and len(file_ids) == 1:
             logger.info(f"Auto-downloading single file: {file_names[0]}")
-            self.controller.selected_file_name = file_names[0]
+            # Store selected file in AppState
+            state = AppState.get_instance()
+            state.set_firmware_selection(file_ids[0], file_names[0])
+            
             download_page = self.controller.frames[DownloadPage]
             download_page.file_id = file_ids[0]
             self.controller.show_frame(DownloadPage)

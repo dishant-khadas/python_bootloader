@@ -10,6 +10,7 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import SUCCESS, SECONDARY, INFO
 
 from utils.t9_keypad import T9Keypad
+from core.app_state import AppState
 
 
 class LoginPage(ttk.Frame):
@@ -149,9 +150,10 @@ class LoginPage(ttk.Frame):
                 ))
             return
 
-        # Save token and phone
-        self.controller.token = token_or_error
-        self.controller.phone = phone
+        # Save token and phone in AppState singleton
+        state = AppState.get_instance()
+        state.set_auth(phone=phone, token=token_or_error)
+        
         self.controller.after(0, lambda: self.controller.show_frame(ProgramPage))
 
     def show_change_wifi_button(self):
