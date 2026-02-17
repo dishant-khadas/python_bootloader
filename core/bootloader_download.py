@@ -44,9 +44,12 @@ from utils.du_utils import (
     decrypt_file,            # expects (hex_string, key_bytes) -> bytes
     decrypt_key_kms,         # KMS decrypt (ciphertext bytes) -> plaintext bytes
     format_hash_to_64_bytes, # hex-string -> 64-byte packet
+    calculate_crc16,         # CRC16 calculation for 512-byte packet
+    calculate_little_endian, # Convert CRC to little-endian bytes
 )
 from utils.gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
 from core.logGenerator import write_log
+from core.app_state import AppState
 from utils.decrypt_utils import encrypt_hex_block
 
 from dotenv import load_dotenv
@@ -65,6 +68,73 @@ def sha256_hex_of_bytes(b: bytes) -> str:
         str: SHA-256 hash as 64-character lowercase hex string.
     """
     return hashlib.sha256(b).hexdigest()
+
+
+def create_512byte_packet_v12(
+    original_hash: str,
+    employee_code: str = "CZART000",
+    username: str = "TESTUSER",
+    phone_number: str = ""
+) -> bytes:
+    """
+    Create 512-byte packet for bootloader version 1.2.
+    
+    Structure:
+        Byte 0: SOP (0x2a)
+        Bytes 1-32: 32-byte SHA-256 filehash (raw bytes)
+        Bytes 33-40: 8-byte employee code (ASCII, padded with spaces)
+        Bytes 41-65: 25-byte username (ASCII, padded with spaces)
+        Bytes 66-81: 16-byte phone number (converted to hex bytes, padded with null)
+        Bytes 82-509: Padding (0x00)
+        Byte 509: EOP (0x3c)
+        Bytes 510-511: CRC16 (little-endian)
+    
+    Args:
+        original_hash (str): 64-character hex string of SHA-256 filehash.
+        employee_code (str): Employee code, max 8 chars. Default "CZART000".
+        username (str): Username, max 25 chars. Default "TESTUSER".
+        phone_number (str): Phone number (e.g., "+91-7347530726").
+        
+    Returns:
+        bytes: 512-byte packet ready for encryption.
+    """
+    packet = bytearray(512)
+    
+    # Byte 0: SOP
+    packet[0] = 0x2a
+    
+    # Bytes 1-32: Filehash (convert 64-char hex string to 32 bytes)
+    filehash_bytes = bytes.fromhex(original_hash)
+    if len(filehash_bytes) != 32:
+        raise ValueError(f"Filehash must be 32 bytes, got {len(filehash_bytes)}")
+    packet[1:33] = filehash_bytes
+    
+    # Bytes 33-40: Employee code (8 bytes, pad with ASCII spaces)
+    emp_bytes = employee_code.encode('ascii')[:8].ljust(8, b' ')
+    packet[33:41] = emp_bytes
+    
+    # Bytes 41-65: Username (25 bytes, pad with ASCII spaces)
+    user_bytes = username.encode('ascii')[:25].ljust(25, b' ')
+    packet[41:66] = user_bytes
+    
+    # Bytes 66-81: Phone number (16 bytes)
+    # Convert "+91-7347530726" to bytes, then pad with null bytes
+    phone_bytes = phone_number.encode('ascii')[:16].ljust(16, b'\x00')
+    packet[66:82] = phone_bytes
+    
+    # Bytes 82-509: Already zeros (bytearray default initialization)
+    
+    # Byte 509: EOP
+    packet[509] = 0x3c
+    
+    # Bytes 510-511: CRC16 of bytes [0:510] in little-endian format
+    crc = calculate_crc16(bytes(packet[:510]))
+    crc_bytes = calculate_little_endian(crc)
+    packet[510:512] = crc_bytes
+    
+    logger.info(f"Created 512-byte packet v1.2: hash={original_hash[:16]}..., emp={employee_code}, user={username}, phone={phone_number}")
+    
+    return bytes(packet)
 
 
 
@@ -226,23 +296,94 @@ def download_and_flash(file_id: str,
 
         callback_message(" Please Wait...")
 
-        # 4) Prepare final hash packet (formatHashTo64Bytes)
-        final_packet = format_hash_to_64_bytes(original_hash)
-        logger.debug(f"Final packet (hex) dishant1:  {final_packet}")
-        logger.debug(f"Final packet (hex) dishant2:  {final_packet.hex()}")
-        if final_packet is False:
-            callback_error("Failed to format final packet")
-            return False
-
-        # If encryption is enabled for the DU, encrypt final packet before sending (placeholder)
-        logger.info(f"is enc enabled :  {is_encryption_enable}")
-        if is_encryption_enable:
-            callback_message("Encrypting final packet...")
+        # 4) Prepare final hash packet based on bootloader version
+        # Get bootloader version from AppState
+        state = AppState.get_instance()
+        bootloader_version = state.bootloader_version_string  # e.g., "1.0", "1.1", "1.2"
+        
+        logger.info(f"Bootloader version detected: {bootloader_version or 'Unknown'}")
+        
+        # Determine packet format and encryption based on bootloader version
+        if bootloader_version and bootloader_version >= "1.2":
+            # ====== VERSION 1.2+ ======
+            # Use 512-byte packet with employee code, username, phone number
+            # ENCRYPTED
+            callback_message("Creating 512-byte packet for bootloader v1.2+...")
+            logger.info(f"Bootloader v{bootloader_version}: Using 512-byte encrypted packet")
+            
+            final_packet = create_512byte_packet_v12(
+                original_hash=original_hash,
+                employee_code="CZART000",
+                username="TESTUSER",
+                phone_number=state.phone_number or ""
+            )
+            
+            # Always encrypt for v1.2+
+            callback_message(f"Encrypting 512-byte packet for v{bootloader_version}...")
             try:
                 final_packet = encrypt_final_packet(final_packet)
+                logger.info(f"Successfully encrypted 512-byte packet for v{bootloader_version}")
             except Exception as e:
-                callback_error(f"Failed to encrypt final packet: {e}")
+                callback_error(f"Failed to encrypt 512-byte packet: {e}")
                 return False
+                
+        elif bootloader_version == "1.1":
+            # ====== VERSION 1.1 ======
+            # Use 64-byte packet
+            # ENCRYPTED
+            callback_message("Creating 64-byte packet for bootloader v1.1...")
+            logger.info("Bootloader v1.1: Using 64-byte encrypted packet")
+            
+            final_packet = format_hash_to_64_bytes(original_hash)
+            if final_packet is False:
+                callback_error("Failed to format 64-byte packet")
+                return False
+            
+            # Always encrypt for v1.1
+            callback_message("Encrypting 64-byte packet for v1.1...")
+            try:
+                final_packet = encrypt_final_packet(final_packet)
+                logger.info("Successfully encrypted 64-byte packet for v1.1")
+            except Exception as e:
+                callback_error(f"Failed to encrypt 64-byte packet: {e}")
+                return False
+                
+        elif bootloader_version == "1.0":
+            # ====== VERSION 1.0 ======
+            # Use 64-byte packet
+            # NOT ENCRYPTED
+            callback_message("Creating 64-byte packet for bootloader v1.0...")
+            logger.info("Bootloader v1.0: Using 64-byte UNENCRYPTED packet")
+            
+            final_packet = format_hash_to_64_bytes(original_hash)
+            if final_packet is False:
+                callback_error("Failed to format 64-byte packet")
+                return False
+            
+            # No encryption for v1.0
+            logger.info("Packet will be sent UNENCRYPTED for v1.0")
+            
+        else:
+            # ====== VERSION UNKNOWN ======
+            # Fallback: Use is_encryption_enable flag
+            callback_message("Bootloader version unknown - using encryption flag...")
+            logger.warning(f"Unknown bootloader version: {bootloader_version}. Using is_encryption_enable flag.")
+            
+            final_packet = format_hash_to_64_bytes(original_hash)
+            if final_packet is False:
+                callback_error("Failed to format 64-byte packet")
+                return False
+            
+            if is_encryption_enable:
+                callback_message("Encrypting 64-byte packet (encryption flag enabled)...")
+                try:
+                    final_packet = encrypt_final_packet(final_packet)
+                    logger.info("Encrypted 64-byte packet based on encryption flag")
+                except Exception as e:
+                    callback_error(f"Failed to encrypt packet: {e}")
+                    return False
+            else:
+                logger.info("Sending UNENCRYPTED packet based on encryption flag")
 
         # 5) Turn BL detect LOW before writing (as in node code)
         try:
