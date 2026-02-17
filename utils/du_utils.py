@@ -70,18 +70,14 @@ def calculate_little_endian(crc: int) -> bytes:
     """
     Convert CRC to little-endian 2-byte bytes object.
     
-    Swaps the high and low bytes of the CRC value, matching the
-    JavaScript implementation: ((crc >> 8) | ((crc & 0xFF) << 8))
-    
     Args:
         crc (int): CRC-16 value to convert.
         
     Returns:
         bytes: 2-byte bytes object in little-endian format.
     """
-    le = ((crc >> 8) | ((crc & 0xFF) << 8)) & 0xFFFF
-    # Convert to 2 bytes in little-endian order
-    return le.to_bytes(2, byteorder='little')
+    # Convert CRC to 2 bytes in little-endian order
+    return crc.to_bytes(2, byteorder='little')
 
 
 def match_crc16(buffer_data: bytes) -> bool:
