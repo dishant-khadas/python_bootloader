@@ -230,78 +230,50 @@ def download_and_flash(file_id: str,
 
         callback_message(" Please Wait...")
 
-        # 4) Prepare final hash packet based on bootloader version
+        # 4) Prepare final hash packet using Strategy Pattern
         # Get bootloader version from AppState
         state = AppState.get_instance()
         bootloader_version = state.bootloader_version_string  # e.g., "1.0", "1.1", "1.2"
         
         logger.info(f"Bootloader version detected: {bootloader_version or 'Unknown'}")
         
-        # Determine packet format and encryption based on bootloader version
-        if bootloader_version and bootloader_version >= "1.2":
-            # ====== VERSION 1.2+ ======
-            # Use 512-byte packet with employee code, username, phone number
-            # ENCRYPTED
-            callback_message("Creating 512-byte packet for bootloader v1.2+...")
-            logger.info(f"Bootloader v{bootloader_version}: Using 512-byte encrypted packet")
+        # Use Strategy Pattern to create appropriate packet
+        try:
+            from core.packet_strategies import PacketStrategyFactory, PacketContext
             
-            final_packet = create_512byte_packet_v12(
-                original_hash=original_hash,
+            # Get strategy for detected version
+            strategy = PacketStrategyFactory.get_strategy(bootloader_version)
+            logger.info(f"Using {strategy.__class__.__name__} for v{strategy.version}")
+            
+            # Create packet context with required data
+            context = PacketContext(
+                file_hash=original_hash,
+                phone_number=state.phone_number or "",
                 employee_code="CZART000",
-                username="TESTUSER",
-                phone_number=state.phone_number or ""
+                username="TESTUSER"
             )
             
-            # Always encrypt for v1.2+
-            callback_message(f"Encrypting 512-byte packet for v{bootloader_version}...")
-            try:
-                final_packet = encrypt_final_packet(final_packet)
-                logger.info(f"Successfully encrypted 512-byte packet for v{bootloader_version}")
-            except Exception as e:
-                callback_error(f"Failed to encrypt 512-byte packet: {e}")
-                return False
+            # Create packet using strategy
+            callback_message(f"Creating {strategy.packet_size}-byte packet for bootloader v{strategy.version}...")
+            final_packet = strategy.create_packet(context)
+            logger.info(f"Created {len(final_packet)}-byte packet for v{strategy.version}")
+            
+            # Encrypt if strategy requires it
+            if strategy.should_encrypt():
+                callback_message(f"Encrypting {strategy.packet_size}-byte packet for v{strategy.version}...")
+                try:
+                    final_packet = encrypt_final_packet(final_packet)
+                    logger.info(f"Successfully encrypted packet for v{strategy.version}")
+                except Exception as e:
+                    callback_error(f"Failed to encrypt packet: {e}")
+                    return False
+            else:
+                logger.info(f"Packet will be sent UNENCRYPTED for v{strategy.version}")
                 
-        elif bootloader_version == "1.1":
-            # ====== VERSION 1.1 ======
-            # Use 64-byte packet
-            # ENCRYPTED
-            callback_message("Creating 64-byte packet for bootloader v1.1...")
-            logger.info("Bootloader v1.1: Using 64-byte encrypted packet")
-            
-            final_packet = format_hash_to_64_bytes(original_hash)
-            if final_packet is False:
-                callback_error("Failed to format 64-byte packet")
-                return False
-            
-            # Always encrypt for v1.1
-            callback_message("Encrypting 64-byte packet for v1.1...")
-            try:
-                final_packet = encrypt_final_packet(final_packet)
-                logger.info("Successfully encrypted 64-byte packet for v1.1")
-            except Exception as e:
-                callback_error(f"Failed to encrypt 64-byte packet: {e}")
-                return False
-                
-        elif bootloader_version == "1.0":
-            # ====== VERSION 1.0 ======
-            # Use 64-byte packet
-            # NOT ENCRYPTED
-            callback_message("Creating 64-byte packet for bootloader v1.0...")
-            logger.info("Bootloader v1.0: Using 64-byte UNENCRYPTED packet")
-            
-            final_packet = format_hash_to_64_bytes(original_hash)
-            if final_packet is False:
-                callback_error("Failed to format 64-byte packet")
-                return False
-            
-            # No encryption for v1.0
-            logger.info("Packet will be sent UNENCRYPTED for v1.0")
-            
-        else:
-            # ====== VERSION UNKNOWN ======
-            # Fallback: Use is_encryption_enable flag
+        except ValueError as e:
+            # Unknown version - fallback to legacy behavior
             callback_message("Bootloader version unknown - using encryption flag...")
-            logger.warning(f"Unknown bootloader version: {bootloader_version}. Using is_encryption_enable flag.")
+            logger.warning(f"Unknown bootloader version: {bootloader_version}. Falling back to encryption flag. Error: {e}")
             
             final_packet = format_hash_to_64_bytes(original_hash)
             if final_packet is False:
