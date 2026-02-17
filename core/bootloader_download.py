@@ -245,16 +245,20 @@ def download_and_flash(file_id: str,
             strategy = PacketStrategyFactory.get_strategy(bootloader_version)
             logger.info(f"Using {strategy.__class__.__name__} for v{strategy.version}")
             
-            # Create packet context with required data
+            #Create packet context with required data
+            logger.info(f"Creating PacketContext with hash={original_hash[:16]}..., phone={state.phone_number}")
             context = PacketContext(
                 file_hash=original_hash,
                 phone_number=state.phone_number or "",
                 employee_code="CZART000",
                 username="TESTUSER"
             )
+            logger.info(f"PacketContext created successfully")
             
             # Create packet using strategy
+            logger.info(f"Calling strategy.create_packet()...")
             callback_message(f"Creating {strategy.packet_size}-byte packet for bootloader v{strategy.version}...")
+
             final_packet = strategy.create_packet(context)
             
             # Validate packet is bytes
@@ -373,7 +377,12 @@ def download_and_flash(file_id: str,
         
         return True
 
+
     except Exception as e:
+        import traceback
+        error_tb = traceback.format_exc()
+        logger.error(f"Unexpected error in download_and_flash: {e}")
+        logger.error(f"Traceback:\n{error_tb}")
         callback_error(f"Unexpected error: {e}")
         try:
             turn_BL_Detect_Low()
