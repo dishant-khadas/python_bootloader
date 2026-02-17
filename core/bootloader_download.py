@@ -44,6 +44,7 @@ from utils.du_utils import (
     decrypt_file,            # expects (hex_string, key_bytes) -> bytes
     decrypt_key_kms,         # KMS decrypt (ciphertext bytes) -> plaintext bytes
     format_hash_to_64_bytes, # hex-string -> 64-byte packet
+    create_512byte_packet_v12, # Create 512-byte packet for bootloader v1.2+
     calculate_crc16,         # CRC16 calculation for 512-byte packet
     calculate_little_endian, # Convert CRC to little-endian bytes
 )
@@ -68,73 +69,6 @@ def sha256_hex_of_bytes(b: bytes) -> str:
         str: SHA-256 hash as 64-character lowercase hex string.
     """
     return hashlib.sha256(b).hexdigest()
-
-
-def create_512byte_packet_v12(
-    original_hash: str,
-    employee_code: str = "CZART000",
-    username: str = "TESTUSER",
-    phone_number: str = ""
-) -> bytes:
-    """
-    Create 512-byte packet for bootloader version 1.2.
-    
-    Structure:
-        Byte 0: SOP (0x2a)
-        Bytes 1-32: 32-byte SHA-256 filehash (raw bytes)
-        Bytes 33-40: 8-byte employee code (ASCII, padded with spaces)
-        Bytes 41-65: 25-byte username (ASCII, padded with spaces)
-        Bytes 66-81: 16-byte phone number (converted to hex bytes, padded with null)
-        Bytes 82-509: Padding (0x00)
-        Byte 509: EOP (0x3c)
-        Bytes 510-511: CRC16 (little-endian)
-    
-    Args:
-        original_hash (str): 64-character hex string of SHA-256 filehash.
-        employee_code (str): Employee code, max 8 chars. Default "CZART000".
-        username (str): Username, max 25 chars. Default "TESTUSER".
-        phone_number (str): Phone number (e.g., "+91-7347530726").
-        
-    Returns:
-        bytes: 512-byte packet ready for encryption.
-    """
-    packet = bytearray(512)
-    
-    # Byte 0: SOP
-    packet[0] = 0x2a
-    
-    # Bytes 1-32: Filehash (convert 64-char hex string to 32 bytes)
-    filehash_bytes = bytes.fromhex(original_hash)
-    if len(filehash_bytes) != 32:
-        raise ValueError(f"Filehash must be 32 bytes, got {len(filehash_bytes)}")
-    packet[1:33] = filehash_bytes
-    
-    # Bytes 33-40: Employee code (8 bytes, pad with ASCII spaces)
-    emp_bytes = employee_code.encode('ascii')[:8].ljust(8, b' ')
-    packet[33:41] = emp_bytes
-    
-    # Bytes 41-65: Username (25 bytes, pad with ASCII spaces)
-    user_bytes = username.encode('ascii')[:25].ljust(25, b' ')
-    packet[41:66] = user_bytes
-    
-    # Bytes 66-81: Phone number (16 bytes)
-    # Convert "+91-7347530726" to bytes, then pad with null bytes
-    phone_bytes = phone_number.encode('ascii')[:16].ljust(16, b'\x00')
-    packet[66:82] = phone_bytes
-    
-    # Bytes 82-509: Already zeros (bytearray default initialization)
-    
-    # Byte 509: EOP
-    packet[509] = 0x3c
-    
-    # Bytes 510-511: CRC16 of bytes [0:510] in little-endian format
-    crc = calculate_crc16(bytes(packet[:510]))
-    crc_bytes = calculate_little_endian(crc)
-    packet[510:512] = crc_bytes
-    
-    logger.info(f"Created 512-byte packet v1.2: hash={original_hash[:16]}..., emp={employee_code}, user={username}, phone={phone_number}")
-    
-    return bytes(packet)
 
 
 
