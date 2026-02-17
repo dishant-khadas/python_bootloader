@@ -256,6 +256,12 @@ def download_and_flash(file_id: str,
             # Create packet using strategy
             callback_message(f"Creating {strategy.packet_size}-byte packet for bootloader v{strategy.version}...")
             final_packet = strategy.create_packet(context)
+            
+            # Validate packet is bytes
+            if not isinstance(final_packet, bytes):
+                callback_error(f"Strategy returned invalid packet type: {type(final_packet)}")
+                return False
+            
             logger.info(f"Created {len(final_packet)}-byte packet for v{strategy.version}")
             
             # Encrypt if strategy requires it
@@ -263,12 +269,19 @@ def download_and_flash(file_id: str,
                 callback_message(f"Encrypting {strategy.packet_size}-byte packet for v{strategy.version}...")
                 try:
                     final_packet = encrypt_final_packet(final_packet)
+                    
+                    # Validate encrypted packet is bytes
+                    if not isinstance(final_packet, bytes):
+                        callback_error(f"Encryption returned invalid type: {type(final_packet)}")
+                        return False
+                        
                     logger.info(f"Successfully encrypted packet for v{strategy.version}")
                 except Exception as e:
                     callback_error(f"Failed to encrypt packet: {e}")
                     return False
             else:
                 logger.info(f"Packet will be sent UNENCRYPTED for v{strategy.version}")
+
                 
         except ValueError as e:
             # Unknown version - fallback to legacy behavior
@@ -313,6 +326,14 @@ def download_and_flash(file_id: str,
 
         try:
             logger.info("Writing final packet to serial...")
+            
+            # Final validation: Ensure packet is bytes before writing
+            if not isinstance(final_packet, bytes):
+                logger.error(f"Final packet is not bytes! Type: {type(final_packet)}")
+                callback_error(f"Internal error: Invalid packet type {type(final_packet)}")
+                ser.close()
+                return False
+            
             logger.debug(f"Final packet (hex) :  {final_packet.hex()}")
             ser.write(final_packet)
             ser.flush()
