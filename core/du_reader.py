@@ -354,7 +354,7 @@ def read_du_from_serial(
             callback_ui_message(f"Warning: turn_BL_Detect_High failed: {e}")
 
         # 2. Read serial data
-        callback_ui_message(f"Opening serial port {serial_port}...")
+        callback_ui_message(f"Validation in Progress...")
         try:
             serial_port_obj = SerialPort(
                 port=serial_port,
@@ -412,7 +412,7 @@ def read_du_from_serial(
         try:
             hw_type = validate_hardware_type(result["buffer_bytes"], version_tuple)
             if hw_type is not None:
-                callback_ui_message(f"Hardware type: {AppState.get_instance().hardware_type_name}")
+                callback_ui_message(f"Validating Hardware type")
         except ValueError as e:
             safe_cleanup()
             write_log("E-59", "Invalid Hardware Type", "Fail", str(e), config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")

@@ -338,7 +338,7 @@ def _prepare_packet(
 
         # Encrypt if strategy requires it
         if strategy.should_encrypt():
-            callback_message(f"Encrypting {strategy.packet_size}-byte packet for v{strategy.version}...")
+            callback_message(f"Finalising Packets...")
             try:
                 final_packet = encrypt_final_packet(final_packet)
                 if not isinstance(final_packet, bytes):
