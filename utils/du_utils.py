@@ -66,21 +66,18 @@ def calculate_crc16(data: bytes) -> int:
     return crc & 0xFFFF
 
 
-def calculate_little_endian(crc: int) -> str:
+def calculate_little_endian(crc: int) -> bytes:
     """
-    Convert CRC to little-endian 4-character hex string.
-    
-    Swaps the high and low bytes of the CRC value, matching the
-    JavaScript implementation: ((crc >> 8) | ((crc & 0xFF) << 8))
+    Convert CRC to little-endian 2-byte bytes object.
     
     Args:
         crc (int): CRC-16 value to convert.
         
     Returns:
-        str: 4-character lowercase hex string in little-endian format.
+        bytes: 2-byte bytes object in little-endian format.
     """
-    le = ((crc >> 8) | ((crc & 0xFF) << 8)) & 0xFFFF
-    return format(le, "04x")
+    # Convert CRC to 2 bytes in little-endian order
+    return crc.to_bytes(2, byteorder='little')
 
 
 def match_crc16(buffer_data: bytes) -> bool:
@@ -100,7 +97,7 @@ def match_crc16(buffer_data: bytes) -> bool:
         return False
     crc = calculate_crc16(buffer_data[:510])
     little_end = calculate_little_endian(crc)
-    return little_end == buffer_data[510:512].hex()
+    return little_end == buffer_data[510:512]
 
 
 def generate_hash(hex_data: str) -> str:
@@ -224,10 +221,85 @@ def format_hash_to_64_bytes(hex_hash: str) -> bytes | bool:
         final[62] = (crc >> 8) & 0xFF  # High byte
         final[63] = crc & 0xFF         # Low byte
 
+        logger.info(f"64 byte packet : {final}")
+
         return bytes(final)
     except Exception as e:
         logger.error(f"format_hash_to_64_bytes error: {e}")
         return False
+
+
+def create_512byte_packet_v12(
+    original_hash: str,
+    employee_code: str = "CZART000",
+    username: str = "TESTUSER",
+    phone_number: str = ""
+) -> bytes:
+    """
+    Create 512-byte packet for bootloader version 1.2+.
+    
+    Structure:
+        Byte 0: SOP (0x2a)
+        Bytes 1-32: 32-byte SHA-256 filehash (raw bytes)
+        Bytes 33-40: 8-byte employee code (ASCII, padded with spaces)
+        Bytes 41-65: 25-byte username (ASCII, padded with spaces)
+        Bytes 66-81: 16-byte phone number (ASCII, padded with null)
+        Bytes 82-509: Padding (0x00)
+        Byte 509: EOP (0x3c)
+        Bytes 510-511: CRC16 (little-endian)
+    
+    Args:
+        original_hash (str): 64-character hex string of SHA-256 filehash.
+        employee_code (str): Employee code, max 8 chars. Default "CZART000".
+        username (str): Username, max 25 chars. Default "TESTUSER".
+        phone_number (str): Phone number (e.g., "+91-7347530726").
+        
+    Returns:
+        bytes: 512-byte packet ready for encryption.
+    """
+    packet = bytearray(512)
+    
+    # Byte 0: SOP
+    packet[0] = 0x2a
+    
+    # Bytes 1-32: Filehash (convert 64-char hex string to 32 bytes)
+    filehash_bytes = bytes.fromhex(original_hash)
+    if len(filehash_bytes) != 32:
+        raise ValueError(f"Filehash must be 32 bytes, got {len(filehash_bytes)}")
+    packet[1:33] = filehash_bytes
+    
+    # Bytes 33-40: Employee code (8 bytes, pad with ASCII spaces)
+    emp_bytes = employee_code.encode('ascii')[:8].ljust(8, b' ')
+    packet[33:41] = emp_bytes
+    
+    # Bytes 41-65: Username (25 bytes, pad with ASCII spaces)
+    user_bytes = username.encode('ascii')[:25].ljust(25, b' ')
+    packet[41:66] = user_bytes
+    
+    # Bytes 66-81: Phone number (16 bytes)
+    # Convert "+91-7347530726" to bytes, then pad with null bytes
+    phone_bytes = phone_number.encode('ascii')[:16].ljust(16, b'\x00')
+    packet[66:82] = phone_bytes
+    
+    # Bytes 82-509: Already zeros (bytearray default initialization)
+    
+    # Byte 509: EOP
+    packet[509] = 0x3c
+    
+    # Bytes 510-511: CRC16 of bytes [0:510] in little-endian format
+
+    crc = calculate_crc16(bytes(packet[:510]))
+    crc_bytes = calculate_little_endian(crc)
+    # logger.info(f"crc bye 512 : {crc_bytes}")
+    # packet[512:510] = crc_bytes
+    packet[510] = (crc >> 8) & 0xFF
+    packet[511] = crc & 0xFF
+
+    logger.info(f"512 byte packet : {packet}")
+    
+    logger.info(f"Created 512-byte packet v1.2: hash={original_hash[:16]}..., emp={employee_code}, user={username}, phone={phone_number}")
+    
+    return bytes(packet)
 
 
 def exec_command(command: str | list[str], ssid: str | None = None, use_array: bool = False) -> str:
@@ -358,19 +430,7 @@ __all__ = [
     "decrypt_file",
     "decrypt_key_kms",
     "format_hash_to_64_bytes",
-    "run_commands",
-    "exec_command",
-    "check_connection",
-    "convert_seconds",
-]
-__all__ = [
-    "calculate_crc16",
-    "calculate_little_endian",
-    "match_crc16",
-    "generate_hash",
-    "decrypt_file",
-    "decrypt_key_kms",
-    "format_hash_to_64_bytes",
+    "create_512byte_packet_v12",
     "run_commands",
     "exec_command",
     "check_connection",

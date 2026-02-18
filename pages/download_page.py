@@ -11,6 +11,7 @@ from ttkbootstrap.constants import INFO
 
 from utils.gpio_control import safe_cleanup
 from core.bootloader_download import download_and_flash
+from core.app_state import AppState
 
 
 class DownloadPage(ttk.Frame):
@@ -83,11 +84,9 @@ class DownloadPage(ttk.Frame):
         from pages.firmware_update_page import FirmwareUpdatePage
         from pages.login_page import LoginPage
         
-        token = self.controller.token
+        # Read all required state from AppState
+        state = AppState.get_instance()
         device_id = "41999990"
-
-        is_enc = getattr(self.controller, "is_encryption_enable", False)
-        enc_key = getattr(self.controller, "encryption_key", None)
 
         def on_msg(text):
             self.controller.after(0, lambda: self.status_label.config(text=text))
@@ -105,13 +104,13 @@ class DownloadPage(ttk.Frame):
 
         download_and_flash(
             file_id=file_id,
-            token=token,
+            token=state.jwt_token,
             device_id=device_id,
-            is_encryption_enable=is_enc,
-            encryption_key=enc_key,
-            phoneNo=getattr(self.controller, "phone", ""),
-            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
-            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
+            is_encryption_enable=state.is_encryption_enabled,
+            encryption_key=state.encryption_key,
+            phoneNo=state.phone_number or "",
+            duNumber=state.du_number or "",
+            displayNumber=state.display_number or "",
             callback_message=on_msg,
             callback_success=on_success,
             callback_error=on_err,

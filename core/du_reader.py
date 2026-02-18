@@ -41,6 +41,7 @@ from utils.gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low, turn_dis
 from core.logGenerator import write_log
 from api.du_api import fetch_du_list
 from core.display_logger import write_display_log
+from core.app_state import AppState
 
 from dotenv import load_dotenv
 from utils.logger import logger
@@ -191,6 +192,7 @@ def read_du_from_serial(
         EOP = f"{buffer_bytes[509]:02x}"
         logger.debug(f"buffer len :  {len(buffer_bytes)}")
         logger.info(f"SOP: {SOP}, EOP: {EOP}")
+        # Bootloader version at bytes 392-393 (0-indexed)
         firmware_v1 = buffer_bytes[393]
         firmware_v2 = buffer_bytes[394]
 
@@ -207,7 +209,9 @@ def read_du_from_serial(
             
             crc_calc = calculate_crc16(buffer_bytes[:510])  # int
             little_end = calculate_little_endian(crc_calc)
-            crc_recv = buffer_bytes[510:512].hex()
+            crc_recv = buffer_bytes[510:512]
+
+            
             
             if little_end == crc_recv:
                 is_encryption_enable = get_encryption_flag(firmware_v1, firmware_v2)
@@ -233,13 +237,14 @@ def read_du_from_serial(
                 # Re-check SOP/EOP
                 SOP = f"{buffer_bytes[0]:02x}"
                 EOP = f"{buffer_bytes[509]:02x}"
+                # Bootloader version at bytes 392-393 (0-indexed)
                 firmware_v1 = buffer_bytes[393]
                 firmware_v2 = buffer_bytes[394]
 
                 if SOP == "2a" and EOP == "3c":
                     crc_calc = calculate_crc16(buffer_bytes[:510])
                     little_end = calculate_little_endian(crc_calc)
-                    crc_recv = buffer_bytes[510:512].hex()
+                    crc_recv = buffer_bytes[510:512]
                     
                     if little_end == crc_recv:
                         is_encryption_enable = True
@@ -319,6 +324,21 @@ def read_du_from_serial(
 
         callback_ui_message(f"DU detected: {du_number}, Display: {display_number}")
 
+        # Store all handshake data in AppState singleton
+        try:
+            state = AppState.get_instance()
+            state.set_du_data(
+                du_number=str(du_number),
+                display_number=str(display_number),
+                raw_bytes=buffer_bytes,
+                is_encrypted=is_encryption_enable,
+                encryption_key=encryption_key
+            )
+            logger.info(f"Stored DU data in AppState. Bootloader version: {state.bootloader_version_string}")
+        except Exception as state_err:
+            logger.error(f"Failed to store data in AppState: {state_err}")
+            # Continue anyway - this is not a critical failure
+
         # Write display log to CSV
         try:
             write_display_log(final_hex)
@@ -339,6 +359,9 @@ def read_du_from_serial(
             return
         
         options = options_or_msg
+        
+        # Store du_options in AppState
+        state.du_options = options
 
         # success: return options to UI
         callback_ui_success({

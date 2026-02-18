@@ -44,9 +44,13 @@ from utils.du_utils import (
     decrypt_file,            # expects (hex_string, key_bytes) -> bytes
     decrypt_key_kms,         # KMS decrypt (ciphertext bytes) -> plaintext bytes
     format_hash_to_64_bytes, # hex-string -> 64-byte packet
+    create_512byte_packet_v12, # Create 512-byte packet for bootloader v1.2+
+    calculate_crc16,         # CRC16 calculation for 512-byte packet
+    calculate_little_endian, # Convert CRC to little-endian bytes
 )
 from utils.gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
 from core.logGenerator import write_log
+from core.app_state import AppState
 from utils.decrypt_utils import encrypt_hex_block
 
 from dotenv import load_dotenv
@@ -70,20 +74,34 @@ def sha256_hex_of_bytes(b: bytes) -> str:
 
 def encrypt_final_packet(final_packet_bytes: bytes) -> bytes:
     """
-    Encrypt the 64-byte final packet using AES-256-CBC.
+    Encrypt the final packet (64-byte or 512-byte) using AES-256-CBC.
     
     This encryption is applied when the DU has encryption enabled,
     matching the encryption expected by the display hardware.
     
     Args:
-        final_packet_bytes (bytes): 64-byte packet containing hash data.
+        final_packet_bytes (bytes): Packet containing hash data (64 or 512 bytes).
         
     Returns:
-        bytes: Encrypted 64-byte packet.
+        bytes: Encrypted packet (same size as input).
     """
+    from utils.decrypt_utils import AES_KEY, AES_IV
+    
+    # Log packet details before encryption
+    logger.info(f"=== ENCRYPTION DEBUG ===")
+    logger.info(f"Packet size: {len(final_packet_bytes)} bytes")
+    logger.info(f"Unencrypted packet (hex): {final_packet_bytes.hex()}")
+    logger.info(f"AES Key (32 bytes): {AES_KEY.hex() if AES_KEY else 'NOT SET'}")
+    logger.info(f"AES IV (16 bytes): {AES_IV.hex() if AES_IV else 'NOT SET'}")
+    
     hex_str = final_packet_bytes.hex()
     encrypted_hex = encrypt_hex_block(hex_str)
-    return bytes.fromhex(encrypted_hex)
+    encrypted_bytes = bytes.fromhex(encrypted_hex)
+    
+    logger.info(f"Encrypted packet (hex): {encrypted_bytes.hex()}")
+    logger.info(f"========================")
+    
+    return encrypted_bytes
 
 
 
@@ -226,23 +244,83 @@ def download_and_flash(file_id: str,
 
         callback_message(" Please Wait...")
 
-        # 4) Prepare final hash packet (formatHashTo64Bytes)
-        final_packet = format_hash_to_64_bytes(original_hash)
-        logger.debug(f"Final packet (hex) dishant1:  {final_packet}")
-        logger.debug(f"Final packet (hex) dishant2:  {final_packet.hex()}")
-        if final_packet is False:
-            callback_error("Failed to format final packet")
-            return False
+        # 4) Prepare final hash packet using Strategy Pattern
+        # Get bootloader version from AppState
+        state = AppState.get_instance()
+        bootloader_version = state.bootloader_version_string  # e.g., "1.0", "1.1", "1.2"
+        
+        logger.info(f"Bootloader version detected: {bootloader_version or 'Unknown'}")
+        
+        # Use Strategy Pattern to create appropriate packet
+        try:
+            from core.bootloader_version_handler import BootloaderVersionFactory, BootloaderVersionContext
+            
+            # Get strategy for detected version
+            strategy = BootloaderVersionFactory.get_strategy(bootloader_version)
+            logger.info(f"Using {strategy.__class__.__name__} for v{strategy.version}")
+            
+            #Create packet context with required data
+            logger.info(f"Creating BootloaderVersionContext with hash={original_hash[:16]}..., phone={state.phone_number}")
+            context = BootloaderVersionContext(
+                file_hash=original_hash,
+                phone_number=state.phone_number or "",
+                employee_code="CZART000",
+                username="TESTUSER"
+            )
+            logger.info(f"PacketContext created successfully")
+            
+            # Create packet using strategy
+            logger.info(f"Calling strategy.create_packet()...")
+            callback_message(f"Creating {strategy.packet_size}-byte packet for bootloader v{strategy.version}...")
 
-        # If encryption is enabled for the DU, encrypt final packet before sending (placeholder)
-        logger.info(f"is enc enabled :  {is_encryption_enable}")
-        if is_encryption_enable:
-            callback_message("Encrypting final packet...")
-            try:
-                final_packet = encrypt_final_packet(final_packet)
-            except Exception as e:
-                callback_error(f"Failed to encrypt final packet: {e}")
+            final_packet = strategy.create_packet(context)
+            
+            # Validate packet is bytes
+            if not isinstance(final_packet, bytes):
+                callback_error(f"Strategy returned invalid packet type: {type(final_packet)}")
                 return False
+            
+            logger.info(f"Created {len(final_packet)}-byte packet for v{strategy.version}")
+            
+            # Encrypt if strategy requires it
+            if strategy.should_encrypt():
+                callback_message(f"Encrypting {strategy.packet_size}-byte packet for v{strategy.version}...")
+                try:
+                    final_packet = encrypt_final_packet(final_packet)
+                    
+                    # Validate encrypted packet is bytes
+                    if not isinstance(final_packet, bytes):
+                        callback_error(f"Encryption returned invalid type: {type(final_packet)}")
+                        return False
+                        
+                    logger.info(f"Successfully encrypted packet for v{strategy.version}")
+                except Exception as e:
+                    callback_error(f"Failed to encrypt packet: {e}")
+                    return False
+            else:
+                logger.info(f"Packet will be sent UNENCRYPTED for v{strategy.version}")
+
+                
+        except ValueError as e:
+            # Unknown version - fallback to legacy behavior
+            callback_message("Bootloader version unknown - using encryption flag...")
+            logger.warning(f"Unknown bootloader version: {bootloader_version}. Falling back to encryption flag. Error: {e}")
+            
+            final_packet = format_hash_to_64_bytes(original_hash)
+            if final_packet is False:
+                callback_error("Failed to format 64-byte packet")
+                return False
+            
+            if is_encryption_enable:
+                callback_message("Encrypting 64-byte packet (encryption flag enabled)...")
+                try:
+                    final_packet = encrypt_final_packet(final_packet)
+                    logger.info("Encrypted 64-byte packet based on encryption flag")
+                except Exception as e:
+                    callback_error(f"Failed to encrypt packet: {e}")
+                    return False
+            else:
+                logger.info("Sending UNENCRYPTED packet based on encryption flag")
 
         # 5) Turn BL detect LOW before writing (as in node code)
         try:
@@ -266,6 +344,14 @@ def download_and_flash(file_id: str,
 
         try:
             logger.info("Writing final packet to serial...")
+            
+            # Final validation: Ensure packet is bytes before writing
+            if not isinstance(final_packet, bytes):
+                logger.error(f"Final packet is not bytes! Type: {type(final_packet)}")
+                callback_error(f"Internal error: Invalid packet type {type(final_packet)}")
+                ser.close()
+                return False
+            
             logger.debug(f"Final packet (hex) :  {final_packet.hex()}")
             ser.write(final_packet)
             ser.flush()
@@ -305,7 +391,12 @@ def download_and_flash(file_id: str,
         
         return True
 
+
     except Exception as e:
+        import traceback
+        error_tb = traceback.format_exc()
+        logger.error(f"Unexpected error in download_and_flash: {e}")
+        logger.error(f"Traceback:\n{error_tb}")
         callback_error(f"Unexpected error: {e}")
         try:
             turn_BL_Detect_Low()
