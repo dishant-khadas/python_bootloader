@@ -41,6 +41,7 @@ Usage:
 import threading
 from typing import Optional
 from utils.logger import logger
+from core.protocol.constants import FW_V1_OFFSET, FW_V2_OFFSET
 
 
 class AppState:
@@ -235,10 +236,9 @@ class AppState:
             self._is_encryption_enabled = is_encrypted
             self._encryption_key = encryption_key
             
-            # Extract bootloader version from bytes 392-393 (0-indexed)
-            # Note: Current code uses 393-394, but user confirmed 392-393 is correct
-            v1 = raw_bytes[393]
-            v2 = raw_bytes[394]
+            # Extract bootloader version using protocol-defined offsets
+            v1 = raw_bytes[FW_V1_OFFSET]
+            v2 = raw_bytes[FW_V2_OFFSET]
             
             self._bootloader_version = (v1, v2)
             self._bootloader_version_string = f"{v1}.{v2}"
