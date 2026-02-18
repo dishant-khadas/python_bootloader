@@ -41,7 +41,7 @@ Usage:
 import threading
 from typing import Optional
 from utils.logger import logger
-from core.protocol.constants import FW_V1_OFFSET, FW_V2_OFFSET
+from core.protocol.constants import FW_V1_OFFSET, FW_V2_OFFSET, HARDWARE_TYPE_OFFSET, VALID_HARDWARE_TYPES, HARDWARE_TYPE_NAMES
 
 
 class AppState:
@@ -99,6 +99,9 @@ class AppState:
         self._is_encryption_enabled: bool = False
         self._encryption_key: Optional[bytes] = None
         
+        # Hardware type (v1.2 only: 0x01=display, 0x02=slave_display)
+        self._hardware_type: Optional[int] = None
+        
         # Firmware Update
         self._selected_file_id: Optional[str] = None
         self._selected_file_name: Optional[str] = None
@@ -137,6 +140,7 @@ class AppState:
             self._bootloader_version_string = None
             self._is_encryption_enabled = False
             self._encryption_key = None
+            self._hardware_type = None
             self._selected_file_id = None
             self._selected_file_name = None
             self._du_options = None
@@ -243,6 +247,18 @@ class AppState:
             self._bootloader_version = (v1, v2)
             self._bootloader_version_string = f"{v1}.{v2}"
             
+            # Extract hardware type for v1.2 only
+            if (v1, v2) == (1, 2):
+                hw_byte = raw_bytes[HARDWARE_TYPE_OFFSET]
+                if hw_byte in VALID_HARDWARE_TYPES:
+                    self._hardware_type = hw_byte
+                    logger.info(f"Hardware type: 0x{hw_byte:02x} ({HARDWARE_TYPE_NAMES.get(hw_byte, 'unknown')})")
+                else:
+                    self._hardware_type = hw_byte  # Store raw value; validation happens in du_reader
+                    logger.warning(f"Unknown hardware type byte: 0x{hw_byte:02x}")
+            else:
+                self._hardware_type = None
+            
     
     @property
     def du_number(self) -> Optional[str]:
@@ -283,6 +299,30 @@ class AppState:
         """
         with self._lock:
             return self._bootloader_version_string
+    
+    @property
+    def hardware_type(self) -> Optional[int]:
+        """
+        Get hardware type identifier (v1.2 only).
+        
+        Returns:
+            int | None: 0x01 (display), 0x02 (slave_display), or None for older versions.
+        """
+        with self._lock:
+            return self._hardware_type
+    
+    @property
+    def hardware_type_name(self) -> Optional[str]:
+        """
+        Get human-readable hardware type name (v1.2 only).
+        
+        Returns:
+            str | None: "display", "slave_display", or None.
+        """
+        with self._lock:
+            if self._hardware_type is None:
+                return None
+            return HARDWARE_TYPE_NAMES.get(self._hardware_type)
     
     # ========== Encryption Methods ==========
     

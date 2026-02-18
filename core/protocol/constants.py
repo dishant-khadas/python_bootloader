@@ -64,6 +64,17 @@ FW_V2_OFFSET = 394                  # Firmware minor version byte
 ENC_KEY_START = 395                 # Encryption key start byte
 ENC_KEY_END = 427                   # Encryption key end byte (exclusive: [395:427] = 32 bytes)
 
+# Hardware type identifier (v1.2 only, byte offset in binary frame)
+HARDWARE_TYPE_OFFSET = 427          # Hardware identifier byte position
+HARDWARE_TYPE_DISPLAY = 0x01        # Target hardware is a Display
+HARDWARE_TYPE_SLAVE_DISPLAY = 0x02  # Target hardware is a Slave Display
+VALID_HARDWARE_TYPES = {HARDWARE_TYPE_DISPLAY, HARDWARE_TYPE_SLAVE_DISPLAY}
+
+HARDWARE_TYPE_NAMES = {
+    HARDWARE_TYPE_DISPLAY: "display",
+    HARDWARE_TYPE_SLAVE_DISPLAY: "slave_display",
+}
+
 # ============================================================
 # 512-byte Response Packet Offsets (v1.2+ outgoing packet)
 # ============================================================

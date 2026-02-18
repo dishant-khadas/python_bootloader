@@ -17,7 +17,10 @@ Usage:
         print("DU number format is valid")
 """
 
-from core.protocol.constants import SOP_BYTE, EOP_BYTE, SOP_OFFSET, EOP_OFFSET
+from core.protocol.constants import (
+    SOP_BYTE, EOP_BYTE, SOP_OFFSET, EOP_OFFSET,
+    FRAME_SIZE, HARDWARE_TYPE_OFFSET, VALID_HARDWARE_TYPES, HARDWARE_TYPE_NAMES,
+)
 
 
 def validate_sop_eop(frame_bytes: bytes) -> bool:
@@ -94,3 +97,39 @@ def get_encryption_flag(fw1: int, fw2: int) -> bool:
         return fw1 >= 11 and fw2 >= 8
     except Exception:
         return False
+
+
+def validate_hardware_type(frame_bytes: bytes, version_tuple: tuple[int, int]) -> int | None:
+    """
+    Extract and validate the hardware type from byte 427 of the handshake frame.
+
+    Only applies to protocol version 1.2. For older versions, returns None
+    (hardware type concept does not exist).
+
+    Args:
+        frame_bytes: Validated 512-byte handshake frame.
+        version_tuple: Bootloader version as (major, minor), e.g. (1, 2).
+
+    Returns:
+        int: Hardware type value (0x01=display, 0x02=slave_display) for v1.2.
+        None: For older protocol versions where this field is not defined.
+
+    Raises:
+        ValueError: If frame is too short or hardware type at byte 427 is invalid.
+    """
+    # Only applicable for v1.2
+    if version_tuple != (1, 2):
+        return None
+
+    if len(frame_bytes) < FRAME_SIZE:
+        raise ValueError(f"Frame too short: expected {FRAME_SIZE} bytes, got {len(frame_bytes)}")
+
+    hw_type = frame_bytes[HARDWARE_TYPE_OFFSET]
+
+    if hw_type not in VALID_HARDWARE_TYPES:
+        raise ValueError(
+            f"Invalid hardware type 0x{hw_type:02x} at byte {HARDWARE_TYPE_OFFSET}. "
+            f"Expected 0x01 (display) or 0x02 (slave_display)"
+        )
+
+    return hw_type

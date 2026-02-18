@@ -39,7 +39,7 @@ from core.protocol.constants import (
     REQUIRED_HEX_LENGTH, ENC_KEY_START, ENC_KEY_END,
     FW_V1_OFFSET, FW_V2_OFFSET,
 )
-from core.protocol.validators import validate_sop_eop, get_encryption_flag, validate_du_number, validate_display_number
+from core.protocol.validators import validate_sop_eop, get_encryption_flag, validate_du_number, validate_display_number, validate_hardware_type
 from core.protocol.frame_parser import parse_du_and_display
 from core.serial_port import SerialPort, SerialPortOpenError, SerialPortTimeoutError, SerialPortError
 
@@ -306,7 +306,9 @@ def _fetch_and_return(
         "displayNumber": display_number,
         "options": options,
         "isEncryptionEnable": is_encrypted,
-        "encryptionKey": encryption_key
+        "encryptionKey": encryption_key,
+        "hardwareType": state.hardware_type,
+        "hardwareTypeName": state.hardware_type_name,
     })
 
 
@@ -404,6 +406,18 @@ def read_du_from_serial(
             result["is_encrypted"], result["encryption_key"],
             final_hex, callback_ui_message,
         )
+
+        # 5a. Validate hardware type (v1.2 only — byte 427)
+        version_tuple = (result["firmware_v1"], result["firmware_v2"])
+        try:
+            hw_type = validate_hardware_type(result["buffer_bytes"], version_tuple)
+            if hw_type is not None:
+                callback_ui_message(f"Hardware type: {AppState.get_instance().hardware_type_name}")
+        except ValueError as e:
+            safe_cleanup()
+            write_log("E-59", "Invalid Hardware Type", "Fail", str(e), config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
+            callback_ui_error(f"E59 - {e}")
+            return
 
         # 6. Fetch DU list from API and return
         _fetch_and_return(
