@@ -253,15 +253,15 @@ def download_and_flash(file_id: str,
         
         # Use Strategy Pattern to create appropriate packet
         try:
-            from core.packet_strategies import PacketStrategyFactory, PacketContext
+            from core.bootloader_version_handler import BootloaderVersionFactory, BootloaderVersionContext
             
             # Get strategy for detected version
-            strategy = PacketStrategyFactory.get_strategy(bootloader_version)
+            strategy = BootloaderVersionFactory.get_strategy(bootloader_version)
             logger.info(f"Using {strategy.__class__.__name__} for v{strategy.version}")
             
             #Create packet context with required data
-            logger.info(f"Creating PacketContext with hash={original_hash[:16]}..., phone={state.phone_number}")
-            context = PacketContext(
+            logger.info(f"Creating BootloaderVersionContext with hash={original_hash[:16]}..., phone={state.phone_number}")
+            context = BootloaderVersionContext(
                 file_hash=original_hash,
                 phone_number=state.phone_number or "",
                 employee_code="CZART000",

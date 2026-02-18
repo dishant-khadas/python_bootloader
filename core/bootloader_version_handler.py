@@ -1,8 +1,8 @@
 """
-Packet Strategy Pattern for Bootloader Version Handling.
+Bootloader Version Handler - Strategy Pattern for Hardware Version Support.
 
 This module implements the Strategy Pattern to handle different packet formats
-and encryption requirements for various bootloader versions (1.0, 1.1, 1.2+).
+and encryption requirements for various bootloader hardware versions (1.0, 1.1, 1.2+).
 
 Design Pattern: Strategy
 - Encapsulates version-specific packet creation logic
@@ -10,10 +10,10 @@ Design Pattern: Strategy
 - Improves testability by isolating each version's logic
 
 Usage:
-    from core.packet_strategies import PacketStrategyFactory, PacketContext
+    from core.bootloader_version_handler import BootloaderVersionFactory, BootloaderVersionContext
     
     # Create context with required data
-    context = PacketContext(
+    context = BootloaderVersionContext(
         file_hash="abc123...",
         phone_number="+91-1234567890",
         employee_code="CZART013",
@@ -21,7 +21,7 @@ Usage:
     )
     
     # Get strategy for version
-    strategy = PacketStrategyFactory.get_strategy("1.2")
+    strategy = BootloaderVersionFactory.get_strategy("1.2")
     
     # Create packet
     packet = strategy.create_packet(context)
@@ -37,9 +37,9 @@ from typing import Optional
 
 
 @dataclass
-class PacketContext:
+class BootloaderVersionContext:
     """
-    Data context for packet creation.
+    Data context for bootloader version packet creation.
     
     Contains all necessary information to create a packet for any bootloader version.
     
@@ -55,21 +55,21 @@ class PacketContext:
     username: str = "TESTUSER"
 
 
-class PacketStrategy(ABC):
+class BootloaderVersionStrategy(ABC):
     """
-    Abstract base class for packet creation strategies.
+    Abstract base class for bootloader version strategies.
     
     Each bootloader version implements this interface to provide
     version-specific packet format and encryption requirements.
     """
     
     @abstractmethod
-    def create_packet(self, context: PacketContext) -> bytes:
+    def create_packet(self, context: BootloaderVersionContext) -> bytes:
         """
         Create packet for this bootloader version.
         
         Args:
-            context: PacketContext containing all required data.
+            context: BootloaderVersionContext containing all required data.
             
         Returns:
             bytes: Formatted packet ready for optional encryption.
@@ -109,16 +109,16 @@ class PacketStrategy(ABC):
         return 64
 
 
-class V1_0PacketStrategy(PacketStrategy):
+class V1_0VersionHandler(BootloaderVersionStrategy):
     """
-    Bootloader v1.0 packet strategy.
+    Bootloader v1.0 handler.
     
     Format: 64-byte packet, UNENCRYPTED
     - Legacy format without encryption support
     - Uses format_hash_to_64_bytes utility
     """
     
-    def create_packet(self, context: PacketContext) -> bytes:
+    def create_packet(self, context: BootloaderVersionContext) -> bytes:
         """Create 64-byte unencrypted packet for v1.0."""
         from utils.du_utils import format_hash_to_64_bytes
         
@@ -141,16 +141,16 @@ class V1_0PacketStrategy(PacketStrategy):
         return 64
 
 
-class V1_1PacketStrategy(PacketStrategy):
+class V1_1VersionHandler(BootloaderVersionStrategy):
     """
-    Bootloader v1.1 packet strategy.
+    Bootloader v1.1 handler.
     
     Format: 64-byte packet, ENCRYPTED
     - Same packet format as v1.0
     - Adds encryption for security
     """
     
-    def create_packet(self, context: PacketContext) -> bytes:
+    def create_packet(self, context: BootloaderVersionContext) -> bytes:
         """Create 64-byte packet for v1.1 (will be encrypted later)."""
         from utils.du_utils import format_hash_to_64_bytes
         
@@ -173,9 +173,9 @@ class V1_1PacketStrategy(PacketStrategy):
         return 64
 
 
-class V1_2PacketStrategy(PacketStrategy):
+class V1_2VersionHandler(BootloaderVersionStrategy):
     """
-    Bootloader v1.2+ packet strategy.
+    Bootloader v1.2+ handler.
     
     Format: 512-byte packet, ENCRYPTED
     - Expanded format with metadata
@@ -183,7 +183,7 @@ class V1_2PacketStrategy(PacketStrategy):
     - CRC16 checksum for integrity
     """
     
-    def create_packet(self, context: PacketContext) -> bytes:
+    def create_packet(self, context: BootloaderVersionContext) -> bytes:
         """Create 512-byte packet for v1.2+ with metadata."""
         from utils.du_utils import create_512byte_packet_v12
         
@@ -209,43 +209,43 @@ class V1_2PacketStrategy(PacketStrategy):
         return 512
 
 
-class PacketStrategyFactory:
+class BootloaderVersionFactory:
     """
-    Factory for creating appropriate packet strategy based on bootloader version.
+    Factory for selecting appropriate version handler based on bootloader version.
     
     Centralizes strategy selection logic and allows runtime registration
-    of new version strategies.
+    of new version handlers.
     """
     
-    # Registry of version -> strategy class
+    # Registry of version -> handler class
     _strategies = {
-        "1.0": V1_0PacketStrategy,
-        "1.1": V1_1PacketStrategy,
-        "1.2": V1_2PacketStrategy,
+        "1.0": V1_0VersionHandler,
+        "1.1": V1_1VersionHandler,
+        "1.2": V1_2VersionHandler,
     }
     
     @classmethod
-    def get_strategy(cls, version: Optional[str]) -> PacketStrategy:
+    def get_strategy(cls, version: Optional[str]) -> BootloaderVersionStrategy:
         """
-        Get appropriate packet strategy for bootloader version.
+        Get appropriate version handler for bootloader version.
         
         Args:
             version: Bootloader version string (e.g., "1.0", "1.1", "1.2").
                      Can be None for unknown versions.
             
         Returns:
-            PacketStrategy: Strategy instance for the version.
+            BootloaderVersionStrategy: Handler instance for the version.
             
         Raises:
             ValueError: If version is None or unsupported.
             
         Examples:
-            >>> strategy = PacketStrategyFactory.get_strategy("1.2")
-            >>> isinstance(strategy, V12PacketStrategy)
+            >>> strategy = BootloaderVersionFactory.get_strategy("1.2")
+            >>> isinstance(strategy, V1_2VersionHandler)
             True
         """
         if not version:
-            raise ValueError("Bootloader version is unknown - cannot determine packet strategy")
+            raise ValueError("Bootloader version is unknown - cannot determine version handler")
         
         # Handle >= 1.2 as v1.2 strategy (future versions use same format)
         if version >= "1.2":
@@ -264,22 +264,22 @@ class PacketStrategyFactory:
     @classmethod
     def register_strategy(cls, version: str, strategy_class: type):
         """
-        Register a new version strategy (for future extensions).
+        Register a new version handler (for future extensions).
         
-        Allows dynamic registration of new bootloader version strategies
+        Allows dynamic registration of new bootloader version handlers
         without modifying this file.
         
         Args:
             version: Version string (e.g., "1.3").
-            strategy_class: Strategy class implementing PacketStrategy.
+            strategy_class: Handler class implementing BootloaderVersionStrategy.
             
         Example:
-            >>> class V13PacketStrategy(PacketStrategy):
+            >>> class V1_3VersionHandler(BootloaderVersionStrategy):
             ...     pass
-            >>> PacketStrategyFactory.register_strategy("1.3", V13PacketStrategy)
+            >>> BootloaderVersionFactory.register_strategy("1.3", V1_3VersionHandler)
         """
-        if not issubclass(strategy_class, PacketStrategy):
-            raise TypeError(f"{strategy_class} must inherit from PacketStrategy")
+        if not issubclass(strategy_class, BootloaderVersionStrategy):
+            raise TypeError(f"{strategy_class} must inherit from BootloaderVersionStrategy")
         
         cls._strategies[version] = strategy_class
     
@@ -296,11 +296,10 @@ class PacketStrategyFactory:
 
 # Public API
 __all__ = [
-    "PacketContext",
-    "PacketStrategy",
-    "V1_0PacketStrategy",
-    "V1_1PacketStrategy",
-    "V1_2PacketStrategy",
-    "PacketStrategyFactory",
+    "BootloaderVersionContext",
+    "BootloaderVersionStrategy",
+    "V1_0VersionHandler",
+    "V1_1VersionHandler",
+    "V1_2VersionHandler",
+    "BootloaderVersionFactory",
 ]
-
