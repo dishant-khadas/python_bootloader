@@ -221,6 +221,8 @@ def format_hash_to_64_bytes(hex_hash: str) -> bytes | bool:
         final[62] = (crc >> 8) & 0xFF  # High byte
         final[63] = crc & 0xFF         # Low byte
 
+        logger.info(f"64 byte packet : {final}")
+
         return bytes(final)
     except Exception as e:
         logger.error(f"format_hash_to_64_bytes error: {e}")
@@ -285,9 +287,15 @@ def create_512byte_packet_v12(
     packet[509] = 0x3c
     
     # Bytes 510-511: CRC16 of bytes [0:510] in little-endian format
+
     crc = calculate_crc16(bytes(packet[:510]))
     crc_bytes = calculate_little_endian(crc)
-    packet[510:512] = crc_bytes
+    # logger.info(f"crc bye 512 : {crc_bytes}")
+    # packet[512:510] = crc_bytes
+    packet[510] = (crc >> 8) & 0xFF
+    packet[511] = crc & 0xFF
+
+    logger.info(f"512 byte packet : {packet}")
     
     logger.info(f"Created 512-byte packet v1.2: hash={original_hash[:16]}..., emp={employee_code}, user={username}, phone={phone_number}")
     
