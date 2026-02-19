@@ -36,6 +36,20 @@ from dataclasses import dataclass
 from typing import Optional
 
 
+def _parse_version(version_str: str) -> tuple[int, ...]:
+    """
+    Parse a version string like '1.2' into a comparable tuple (1, 2).
+    
+    Supports any number of dot-separated numeric parts.
+    
+    Examples:
+        _parse_version('1.2')  -> (1, 2)
+        _parse_version('1.10') -> (1, 10)
+        _parse_version('2.0')  -> (2, 0)
+    """
+    return tuple(int(p) for p in version_str.split('.'))
+
+
 @dataclass
 class BootloaderVersionContext:
     """
@@ -120,7 +134,7 @@ class V1_0VersionHandler(BootloaderVersionStrategy):
     
     def create_packet(self, context: BootloaderVersionContext) -> bytes:
         """Create 64-byte unencrypted packet for v1.0."""
-        from utils.du_utils import format_hash_to_64_bytes
+        from core.protocol.packet_builder import format_hash_to_64_bytes
         
         packet = format_hash_to_64_bytes(context.file_hash)
         if packet is False:
@@ -152,7 +166,7 @@ class V1_1VersionHandler(BootloaderVersionStrategy):
     
     def create_packet(self, context: BootloaderVersionContext) -> bytes:
         """Create 64-byte packet for v1.1 (will be encrypted later)."""
-        from utils.du_utils import format_hash_to_64_bytes
+        from core.protocol.packet_builder import format_hash_to_64_bytes
         
         packet = format_hash_to_64_bytes(context.file_hash)
         if packet is False:
@@ -185,7 +199,7 @@ class V1_2VersionHandler(BootloaderVersionStrategy):
     
     def create_packet(self, context: BootloaderVersionContext) -> bytes:
         """Create 512-byte packet for v1.2+ with metadata."""
-        from utils.du_utils import create_512byte_packet_v12
+        from core.protocol.packet_builder import create_512byte_packet_v12
         
         packet = create_512byte_packet_v12(
             original_hash=context.file_hash,
@@ -248,7 +262,7 @@ class BootloaderVersionFactory:
             raise ValueError("Bootloader version is unknown - cannot determine version handler")
         
         # Handle >= 1.2 as v1.2 strategy (future versions use same format)
-        if version >= "1.2":
+        if _parse_version(version) >= (1, 2):
             return cls._strategies["1.2"]()
         
         # Exact version match

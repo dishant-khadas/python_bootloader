@@ -1,12 +1,14 @@
 """
-Log Generator Module for Python Bootloader Application.
+Audit Log Generator Module for Python Bootloader Application.
 
-This module provides logging functionality for tracking firmware update operations.
-It supports both local CSV file logging and remote API logging to a Node.js server.
+This module provides AUDIT LOGGING — structured error/event tracking for
+firmware update operations. It writes to both a local CSV file and a
+remote API endpoint.
 
-Log Storage:
-    - Local: logs.csv file in the application directory
-    - Remote: POST to /api/logs/data-log endpoint
+Logging Architecture (3 systems, different purposes):
+    1. logger (utils/logger.py) — Python logging for operational debug output
+    2. write_log (this module) — Audit trail: CSV + remote API for error tracking
+    3. write_display_log (display_logger.py) — Hardware data CSV from handshake
 
 Log Fields:
     - Serial Number, Log ID, Phone Number, IP Address
@@ -25,10 +27,10 @@ import datetime
 import socket
 import requests
 from utils.logger import logger
+from config import config
 
-# Remote logging API endpoint
-# TODO: Move to config.py for consistency
-API_URL = "https://bootloader.czarmetricsystem.com/api/logs/data-log"
+# Audit logging API endpoint — loaded from centralized config
+API_URL = config.API_URL
 
 # Global counter for log serial numbers
 next_serial_number = 1

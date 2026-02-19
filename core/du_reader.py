@@ -3,45 +3,45 @@ Dispenser Unit (DU) Reader Module for Python Bootloader Application.
 
 This module handles the serial communication handshake with the display hardware
 to read device identification data (DU number and Display number). It validates
-the received data using CRC checks and can handle both encrypted and unencrypted
-data frames.
+the incoming data frame, extracts device info, and calls the DU_Update API.
 
-Key Features:
-    - Serial port communication with configurable parameters
-    - Automatic detection of encrypted vs unencrypted data
-    - CRC-16 validation of received data
-    - AES-256-CBC decryption for encrypted frames
-    - Extraction of DU and Display serial numbers
-    - Integration with DU_Update API for firmware list retrieval
-
-Protocol Details:
-    - Data frame: 512 bytes (1024 hex characters)
-    - SOP (Start of Packet): 0x2A at byte 0
-    - EOP (End of Packet): 0x3C at byte 509
-    - CRC-16: bytes 510-511 (little-endian)
-    - DU Number: bytes 1-4 (hex digits 2-10)
-    - Display Number: bytes 5-8 (hex digits 10-18)
+Process Flow:
+    1. Toggle BL_DETECT pin HIGH to signal readiness
+    2. Read 512-byte data frame from serial port
+    3. Validate frame (SOP/EOP, CRC) — decrypt if encrypted
+    4. Extract and validate DU number and Display number
+    5. Store handshake data in AppState
+    6. Fetch DU update list from server API
+    7. Return results via callback
 
 Functions:
-    read_du_from_serial: Main handshake function (run in thread).
-    get_encryption_flag: Determine encryption based on firmware version.
-    parse_du_and_display_from_hex: Extract serial numbers from hex data.
+    read_du_from_serial: Main orchestrator (calls private helpers).
+    _validate_frame_data: Frame validation + optional decryption.
+    _extract_device_numbers: Parse + validate DU#/Display#.
+    _store_handshake_data: Persist handshake results to AppState.
+    _fetch_and_return: Call DU API and invoke success callback.
 """
 
 import os
 import time
 import requests
-import serial
 from typing import Callable
 
 from config import config
 from utils.decrypt_utils import decrypt_hex_block
-from utils.du_utils import calculate_crc16, calculate_little_endian
 from utils.gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low, turn_display_On, turn_display_Off, safe_cleanup
 from core.logGenerator import write_log
 from api.du_api import fetch_du_list
 from core.display_logger import write_display_log
 from core.app_state import AppState
+from core.protocol.crc import calculate_crc16, calculate_little_endian, validate_crc
+from core.protocol.constants import (
+    REQUIRED_HEX_LENGTH, ENC_KEY_START, ENC_KEY_END,
+    FW_V1_OFFSET, FW_V2_OFFSET,
+)
+from core.protocol.validators import validate_sop_eop, get_encryption_flag, validate_du_number, validate_display_number, validate_hardware_type
+from core.protocol.frame_parser import parse_du_and_display
+from core.serial_port import SerialPort, SerialPortOpenError, SerialPortTimeoutError, SerialPortError
 
 from dotenv import load_dotenv
 from utils.logger import logger
@@ -51,34 +51,270 @@ load_dotenv()
 DEFAULT_SERIAL_PORT = config.SERIAL_PORT
 DEFAULT_BAUDRATE = config.SERIAL_BAUD
 HANDSHAKE_TIMEOUT = config.HANDSHAKE_TIMEOUT
-REQUIRED_HEX_LENGTH = config.REQUIRED_HEX_LENGTH
-
-# Encryption key location in the 512-byte data frame
-ENCRYPTED_KEY_START = config.ENCRYPTED_KEY_START
-ENCRYPTED_KEY_END = config.ENCRYPTED_KEY_END
 
 
+# ---------------------------------------------------------------------------
+# Private helpers — extracted from the former monolithic read_du_from_serial
+# ---------------------------------------------------------------------------
 
-def get_encryption_flag(fw1: int, fw2: int) -> bool:
+def _validate_frame_data(
+    buffer_bytes: bytes,
+    first_block_hex: str,
+    callback_ui_message,
+    callback_ui_error,
+    phoneNo: str,
+) -> dict | None:
     """
-    Determine if encryption is enabled based on firmware version.
-    
-    Checks if the firmware version indicates encryption support.
-    Encryption is enabled for firmware versions >= 11.8.
-    
+    Validate the received 512-byte frame data.
+
+    Handles three cases:
+      1. Unencrypted: SOP/EOP match directly → CRC check
+      2. Encrypted: SOP/EOP mismatch → decrypt → re-check SOP/EOP/CRC
+      3. Partial mismatch: one marker matches, other doesn't → error
+
     Args:
-        fw1 (int): Major firmware version number.
-        fw2 (int): Minor firmware version number.
-        
+        buffer_bytes: Raw 512-byte frame.
+        first_block_hex: Hex string of the frame (for decryption).
+        callback_ui_message: Status update callback.
+        callback_ui_error: Error callback.
+        phoneNo: For error logging.
+
     Returns:
-        bool: True if encryption should be enabled, False otherwise.
+        dict with keys {'buffer_bytes', 'is_encrypted', 'encryption_key',
+        'firmware_v1', 'firmware_v2'} on success, or None on failure.
+    """
+    firmware_v1 = buffer_bytes[FW_V1_OFFSET]
+    firmware_v2 = buffer_bytes[FW_V2_OFFSET]
+    SOP = f"{buffer_bytes[0]:02x}"
+    EOP = f"{buffer_bytes[509]:02x}"
+
+    logger.debug(f"buffer len: {len(buffer_bytes)}")
+    logger.info(f"SOP: {SOP}, EOP: {EOP}")
+
+    # Case 1: Unencrypted frame
+    if validate_sop_eop(buffer_bytes):
+        logger.info("without encryption")
+        callback_ui_message("SOP/EOP matched (unencrypted). Checking CRC...")
+
+        if validate_crc(buffer_bytes):
+            return {
+                "buffer_bytes": buffer_bytes,
+                "is_encrypted": get_encryption_flag(firmware_v1, firmware_v2),
+                "encryption_key": None,
+                "firmware_v1": firmware_v1,
+                "firmware_v2": firmware_v2,
+            }
+        else:
+            crc_calc = calculate_crc16(buffer_bytes[:510])
+            crc_recv = buffer_bytes[510:512]
+            callback_ui_message(f"CRC Mismatch: Calc {calculate_little_endian(crc_calc)} vs Recv {crc_recv}")
+            safe_cleanup()
+            write_log("E-42", "Invalid Data Received", "Fail", f"CRC Mismatch: Calculated {calculate_little_endian(crc_calc)} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
+            callback_ui_error("E52 - Invalid Data Received")
+            return None
+
+    # Case 2: Encrypted frame (both markers mismatch)
+    elif SOP != "2a" and EOP != "3c":
+        logger.info("with encryption")
+        callback_ui_message("Encrypted data detected (SOP/EOP mismatch)...")
+        try:
+            logger.debug(f"first_block_hex: {first_block_hex}")
+            decrypted_hex = decrypt_hex_block(first_block_hex)
+            logger.debug(f"decrypted_hex: {decrypted_hex}")
+            buffer_bytes = bytes.fromhex(decrypted_hex)
+
+            # Re-extract fields from decrypted data
+            SOP = f"{buffer_bytes[0]:02x}"
+            EOP = f"{buffer_bytes[509]:02x}"
+            firmware_v1 = buffer_bytes[FW_V1_OFFSET]
+            firmware_v2 = buffer_bytes[FW_V2_OFFSET]
+
+            if validate_sop_eop(buffer_bytes):
+                if validate_crc(buffer_bytes):
+                    # Extract and decrypt encryption key
+                    encrypted_key_bytes = buffer_bytes[ENC_KEY_START:ENC_KEY_END]
+                    logger.debug(f"Extracted encrypted key: {len(encrypted_key_bytes)} bytes")
+
+                    try:
+                        decrypted_key_hex = decrypt_hex_block(encrypted_key_bytes.hex())
+                        encryption_key = bytes.fromhex(decrypted_key_hex)
+                        logger.debug(f"Decrypted encryption key: {len(encryption_key)} bytes")
+                    except Exception as decrypt_err:
+                        logger.warning(f"Warning: Failed to decrypt encryption key: {decrypt_err}")
+                        encryption_key = encrypted_key_bytes
+
+                    return {
+                        "buffer_bytes": buffer_bytes,
+                        "is_encrypted": True,
+                        "encryption_key": encryption_key,
+                        "firmware_v1": firmware_v1,
+                        "firmware_v2": firmware_v2,
+                    }
+                else:
+                    crc_calc = calculate_crc16(buffer_bytes[:510])
+                    crc_recv = buffer_bytes[510:512]
+                    write_log("E-42", "Invalid Data Received", "Fail", f"CRC fail after decrypt: Calculated {calculate_little_endian(crc_calc)} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
+                    callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
+                    return None
+            else:
+                write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
+                callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
+                return None
+
+        except Exception as e:
+            safe_cleanup()
+            write_log("E-42", "Invalid Data Received", "Fail", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
+            callback_ui_error(f"E52 - Decrypt failed: {e}")
+            return None
+
+    # Case 3: Partial mismatch (one marker correct, other wrong)
+    else:
+        callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
+        safe_cleanup()
+        write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
+        callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
+        return None
+
+
+def _extract_device_numbers(
+    final_hex: str,
+    callback_ui_error,
+    phoneNo: str,
+) -> tuple[int, int] | None:
+    """
+    Parse and validate DU and Display serial numbers from frame hex data.
+
+    Args:
+        final_hex: Validated frame as hex string.
+        callback_ui_error: Error callback.
+        phoneNo: For error logging.
+
+    Returns:
+        (du_number, display_number) tuple on success, None on failure.
     """
     try:
-        return (fw1 >= 11 and fw2 >= 8)
-    except Exception:
-        return False
+        du_number, display_number = parse_du_and_display(final_hex)
+    except Exception as e:
+        safe_cleanup()
+        callback_ui_error(f"Parsing DU/Display failed: {e}")
+        return None
+
+    if not validate_du_number(du_number):
+        safe_cleanup()
+        write_log("E-58", "Invalid DU Number Received", "Fail", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), "", "")
+        callback_ui_error(f"E58 - Invalid DU Number Received: {du_number}")
+        return None
+
+    if not validate_display_number(display_number):
+        safe_cleanup()
+        write_log("E-58", "Invalid Display Number Received", "Fail", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
+        callback_ui_error(f"E58 - Invalid Display Number Received: {display_number}")
+        return None
+
+    return du_number, display_number
 
 
+def _store_handshake_data(
+    buffer_bytes: bytes,
+    du_number: int,
+    display_number: int,
+    is_encrypted: bool,
+    encryption_key: bytes | None,
+    final_hex: str,
+    callback_ui_message,
+) -> None:
+    """
+    Persist validated handshake data to AppState and write display log.
+
+    Args:
+        buffer_bytes: Validated 512-byte frame.
+        du_number: Validated DU serial number.
+        display_number: Validated Display serial number.
+        is_encrypted: Whether encryption is enabled.
+        encryption_key: Decrypted 32-byte key or None.
+        final_hex: Frame hex string for display log.
+        callback_ui_message: Status callback.
+    """
+    try:
+        turn_BL_Detect_Low()
+    except:
+        pass
+
+    callback_ui_message(f"DU detected: {du_number}, Display: {display_number}")
+
+    # Store in AppState singleton
+    try:
+        state = AppState.get_instance()
+        state.set_du_data(
+            du_number=str(du_number),
+            display_number=str(display_number),
+            raw_bytes=buffer_bytes,
+            is_encrypted=is_encrypted,
+            encryption_key=encryption_key
+        )
+        logger.info(f"Stored DU data in AppState. Bootloader version: {state.bootloader_version_string}")
+    except Exception as state_err:
+        logger.error(f"Failed to store data in AppState: {state_err}")
+
+    # Write display log to CSV
+    try:
+        write_display_log(final_hex)
+    except Exception as log_err:
+        logger.warning(f"Warning: Failed to write display log: {log_err}")
+
+
+def _fetch_and_return(
+    token: str,
+    du_number: int,
+    display_number: int,
+    is_encrypted: bool,
+    encryption_key: bytes | None,
+    callback_ui_success,
+    callback_ui_error,
+) -> None:
+    """
+    Call DU_Update API and invoke the appropriate callback.
+
+    Args:
+        token: Auth token for API.
+        du_number: Validated DU serial number.
+        display_number: Validated Display serial number.
+        is_encrypted: Encryption flag.
+        encryption_key: Decrypted key or None.
+        callback_ui_success: Success callback.
+        callback_ui_error: Error callback.
+    """
+    success, options_or_msg, _ = fetch_du_list(token, du_number, display_number)
+    logger.info(f"DU_Update API result: {success, options_or_msg}")
+
+    if not success:
+        if "No DU Assigned" in str(options_or_msg):
+            callback_ui_error("No DU Assigned")
+        else:
+            callback_ui_error(f"DU_Update error: {options_or_msg}")
+        turn_display_Off()
+        return
+
+    options = options_or_msg
+
+    # Store du_options in AppState
+    state = AppState.get_instance()
+    state.du_options = options
+
+    callback_ui_success({
+        "duNumber": du_number,
+        "displayNumber": display_number,
+        "options": options,
+        "isEncryptionEnable": is_encrypted,
+        "encryptionKey": encryption_key,
+        "hardwareType": state.hardware_type,
+        "hardwareTypeName": state.hardware_type_name,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Main orchestrator
+# ---------------------------------------------------------------------------
 
 def read_du_from_serial(
     token: str,
@@ -94,308 +330,103 @@ def read_du_from_serial(
 
     Args:
       token: auth token (Bearer)
+      phoneNo: user phone number for logging
       callback_ui_message: fn(str) for status updates
       callback_ui_success: fn(dict) on success (receives options from DU_Update API)
       callback_ui_error: fn(str) on error
-      serial_port: device path (default '/dev/ttyS3')
-      baudrate: int baud
+      serial_port: device path (default from config)
+      baudrate: int baud (default from config)
 
-    Behavior mirrors your JS:
-      - toggle BL_DETECT HIGH
-      - open serial
-      - accumulate hex chunks until >= 1024 chars (512 bytes)
-      - build buffer, check SOP/EOP; if mismatch -> decrypt_hex_block(receivedHex)
-      - check CRC using calculate_crc16() and calculate_little_endian()
-      - determine isEncryptionEnable via firmware bytes
-      - call DU_Update API with headers Authorization Bearer, deviceID, duNumber, displayNumber
-      - callback_ui_success(options) on success
-      - ensures turn_BL_Detect_Low() in error/final branches
+    Process:
+      1. Toggle BL_DETECT HIGH → read serial data
+      2. Validate frame (SOP/EOP/CRC, decrypt if needed)
+      3. Extract and validate DU#/Display#
+      4. Store handshake data in AppState
+      5. Fetch DU update list from API → callback
     """
 
     try:
-        # raise BL detect high (start handshake)
+        # 1. Raise BL detect HIGH to signal readiness
         try:
             turn_BL_Detect_High()
             turn_display_On()
-            
         except Exception as e:
             callback_ui_message(f"Warning: turn_BL_Detect_High failed: {e}")
 
-        # Open serial port
-        callback_ui_message(f"Opening serial port {serial_port}...")
+        # 2. Read serial data
+        callback_ui_message(f"Validation in Progress...")
         try:
-            ser = serial.Serial(serial_port, baudrate=baudrate, timeout=0.5)
-        except Exception as e:
+            serial_port_obj = SerialPort(
+                port=serial_port,
+                baudrate=baudrate,
+                timeout=0.5,
+            )
+            received_hex = serial_port_obj.read_hex_until(
+                expected_length=REQUIRED_HEX_LENGTH,
+                timeout_secs=HANDSHAKE_TIMEOUT,
+                on_progress=lambda n: callback_ui_message(f"Received hex length: {n}"),
+            )
+            callback_ui_message(f"Data received (len: {len(received_hex)})")
+        except SerialPortOpenError as e:
             callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
             safe_cleanup()
             return
-
-        received_hex = ""
-        start_time = time.time()
-        is_encryption_enable = False
-        encryption_key = None  # Will store the 32-byte encryption key if data is encrypted
-        SERIAL_TIMEOUT = 15  # 15 seconds timeout
-
-        callback_ui_message("Waiting for DU data...")
-
-        while True:
-            # Check for timeout (15 seconds with no data at all)
-            elapsed = time.time() - start_time
-            if elapsed > SERIAL_TIMEOUT and len(received_hex) == 0:
-                safe_cleanup()
-                ser.close()
+        except SerialPortTimeoutError as e:
+            safe_cleanup()
+            if "No data received" in str(e):
                 callback_ui_error("E31 - No Data Received During Handshake")
                 write_log("E-31", "No Data Received", "Fail", "No Data Received During Handshake", config.DEVICE_ID, phoneNo, "", "", "")
-                return
+            else:
+                callback_ui_error(f"E31 - Timeout: {e}")
+            return
+        except SerialPortError as e:
+            safe_cleanup()
+            callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
+            return
 
-            # Also timeout if we've been waiting too long even with partial data
-            if elapsed > SERIAL_TIMEOUT:
-                safe_cleanup()
-                ser.close()
-                callback_ui_error(f"E31 - Timeout: Only received {len(received_hex)} hex chars, need {REQUIRED_HEX_LENGTH}")
-                return
-
-            # Read any available bytes
-            try:
-                chunk = ser.read(256)  # read up to 256 bytes at a time
-            except Exception as e:
-                safe_cleanup()
-                ser.close()
-                callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
-                return
-
-            if not chunk:
-                # No data right now, continue looping
-                continue
-
-            # Append chunk as hex string (exactly like JS Buffer.toString('hex'))
-            chunk_hex = chunk.hex()
-            received_hex += chunk_hex
-
-            # Debug update
-            callback_ui_message(f"Received hex length: {len(received_hex)}")
-
-            # Check if we have enough data (at least 1024 hex chars = 512 bytes)
-            if len(received_hex) >= REQUIRED_HEX_LENGTH:
-                # We have enough data, close serial and proceed
-                ser.close()
-                callback_ui_message(f"Data received (len: {len(received_hex)})")
-                break
-
-        # Process the received data
-        # Work with the first 1024 hex chars (512 bytes) like JS
+        # 3. Validate frame data (SOP/EOP, CRC, decrypt if needed)
         first_block_hex = received_hex[:REQUIRED_HEX_LENGTH]
         buffer_bytes = bytes.fromhex(first_block_hex)
 
-        # SOP / EOP (JS used bufferData[0] and bufferData[509])
-        SOP = f"{buffer_bytes[0]:02x}"
-        EOP = f"{buffer_bytes[509]:02x}"
-        logger.debug(f"buffer len :  {len(buffer_bytes)}")
-        logger.info(f"SOP: {SOP}, EOP: {EOP}")
-        # Bootloader version at bytes 392-393 (0-indexed)
-        firmware_v1 = buffer_bytes[393]
-        firmware_v2 = buffer_bytes[394]
-
-        # Logic strictly mirroring JS:
-        # if ( SOP === "2a" && EOP === "3c" ) { ... }
-        # if(SOP != "2a" && EOP != "3c") { ... }
-        
-        validated = False
-
-        if SOP == "2a" and EOP == "3c":
-            # unencrypted; check CRC
-            logger.info("without encryption")
-            callback_ui_message("SOP/EOP matched (unencrypted). Checking CRC...")
-            
-            crc_calc = calculate_crc16(buffer_bytes[:510])  # int
-            little_end = calculate_little_endian(crc_calc)
-            crc_recv = buffer_bytes[510:512]
-
-            
-            
-            if little_end == crc_recv:
-                is_encryption_enable = get_encryption_flag(firmware_v1, firmware_v2)
-                validated = True
-            else:
-                callback_ui_message(f"CRC Mismatch: Calc {little_end} vs Recv {crc_recv}")
-                safe_cleanup()
-                write_log("E-42", "Invalid Data Received", "Fail", f"CRC Mismatch: Calculated {little_end} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
-                callback_ui_error("E52 - Invalid Data Received")
-                return
-
-        elif SOP != "2a" and EOP != "3c":
-            # encrypted
-            logger.info("with encryption")
-            callback_ui_message("Encrypted data detected (SOP/EOP mismatch)...")
-            try:
-                # Decrypt receives hex string
-                logger.debug(f"first_block_hex: {first_block_hex}")
-                decrypted_hex = decrypt_hex_block(first_block_hex)
-                logger.debug(f"decrypted_hex: {decrypted_hex}")
-                buffer_bytes = bytes.fromhex(decrypted_hex)
-                
-                # Re-check SOP/EOP
-                SOP = f"{buffer_bytes[0]:02x}"
-                EOP = f"{buffer_bytes[509]:02x}"
-                # Bootloader version at bytes 392-393 (0-indexed)
-                firmware_v1 = buffer_bytes[393]
-                firmware_v2 = buffer_bytes[394]
-
-                if SOP == "2a" and EOP == "3c":
-                    crc_calc = calculate_crc16(buffer_bytes[:510])
-                    little_end = calculate_little_endian(crc_calc)
-                    crc_recv = buffer_bytes[510:512]
-                    
-                    if little_end == crc_recv:
-                        is_encryption_enable = True
-                        # Extract encryption key from bytes 395-427 (32 bytes) - this key is encrypted
-                        encrypted_key_bytes = buffer_bytes[ENCRYPTED_KEY_START:ENCRYPTED_KEY_END]
-                        logger.debug(f"Extracted encrypted key: {len(encrypted_key_bytes)} bytes")
-                        
-                        # Decrypt the key using AES-256-CBC with keys from encKey.py
-                        try:
-                            decrypted_key_hex = decrypt_hex_block(encrypted_key_bytes.hex())
-                            encryption_key = bytes.fromhex(decrypted_key_hex)
-                            logger.debug(f"Decrypted encryption key: {len(encryption_key)} bytes")
-                        except Exception as decrypt_err:
-                            logger.warning(f"Warning: Failed to decrypt encryption key: {decrypt_err}")
-                            encryption_key = encrypted_key_bytes
-                        
-                        validated = True
-                    else:
-                        write_log("E-42", "Invalid Data Received", "Fail", f"CRC fail after decrypt: Calculated {little_end} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
-                        callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
-                        return
-                else:
-                    write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
-                    callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
-                    return
-
-            except Exception as e:
-                safe_cleanup()
-                write_log("E-42", "Invalid Data Received", "Fail", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
-                callback_ui_error(f"E52 - Decrypt failed: {e}")
-                return
-
-        else:
-            # Case where one matches and other doesn't (SOP=2a but EOP!=3c, etc.)
-            callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
-            safe_cleanup()
-            write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
-            callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
+        result = _validate_frame_data(buffer_bytes, first_block_hex, callback_ui_message, callback_ui_error, phoneNo)
+        if result is None:
             return
 
-        if not validated:
-            safe_cleanup()
-            write_log("E-42", "Invalid Data Received", "Fail", "Verification Failed - Data could not be validated", config.DEVICE_ID, phoneNo, "", "", "")
-            callback_ui_error("E52 - Verification Failed")
+        # 4. Extract and validate device numbers
+        final_hex = result["buffer_bytes"].hex()
+        devices = _extract_device_numbers(final_hex, callback_ui_error, phoneNo)
+        if devices is None:
             return
 
-        # If we are here, data is valid and buffer_bytes contains the correct data (decrypted if needed)
-        final_hex = buffer_bytes.hex()
-        
+        du_number, display_number = devices
+
+        # 5. Store handshake data
+        _store_handshake_data(
+            result["buffer_bytes"], du_number, display_number,
+            result["is_encrypted"], result["encryption_key"],
+            final_hex, callback_ui_message,
+        )
+
+        # 5a. Validate hardware type (v1.2 only — byte 427)
+        version_tuple = (result["firmware_v1"], result["firmware_v2"])
         try:
-            du_number, display_number = parse_du_and_display_from_hex(final_hex)
-        except Exception as e:
+            hw_type = validate_hardware_type(result["buffer_bytes"], version_tuple)
+            if hw_type is not None:
+                callback_ui_message(f"Validating Hardware type")
+        except ValueError as e:
             safe_cleanup()
-            callback_ui_error(f"Parsing DU/Display failed: {e}")
+            write_log("E-59", "Invalid Hardware Type", "Fail", str(e), config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
+            callback_ui_error(f"E59 - {e}")
             return
 
-        # Validate DU number: must start with 99 and be 8 digits
-        du_str = str(du_number)
-        if len(du_str) != 8 or not du_str.startswith("99"):
-            safe_cleanup()
-            write_log("E-58", "Invalid DU Number Received", "Fail", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), "", "")
-            callback_ui_error(f"E58 - Invalid DU Number Received: {du_number}")
-            return
-
-        # Validate display number: must start with 12 and be 8 digits
-        display_str = str(display_number)
-        if len(display_str) != 8 or not display_str.startswith("12"):
-            safe_cleanup()
-            write_log("E-58", "Invalid Display Number Received", "Fail", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
-            callback_ui_error(f"E58 - Invalid Display Number Received: {display_number}")
-            return
-
-        try:
-            turn_BL_Detect_Low()
-        except:
-            pass
-
-        callback_ui_message(f"DU detected: {du_number}, Display: {display_number}")
-
-        # Store all handshake data in AppState singleton
-        try:
-            state = AppState.get_instance()
-            state.set_du_data(
-                du_number=str(du_number),
-                display_number=str(display_number),
-                raw_bytes=buffer_bytes,
-                is_encrypted=is_encryption_enable,
-                encryption_key=encryption_key
-            )
-            logger.info(f"Stored DU data in AppState. Bootloader version: {state.bootloader_version_string}")
-        except Exception as state_err:
-            logger.error(f"Failed to store data in AppState: {state_err}")
-            # Continue anyway - this is not a critical failure
-
-        # Write display log to CSV
-        try:
-            write_display_log(final_hex)
-        except Exception as log_err:
-            logger.warning(f"Warning: Failed to write display log: {log_err}")
-        # callback_ui_message("Querying server for DU update list...")
-        
-        success, options_or_msg, _ = fetch_du_list(token, du_number, display_number)
-
-        logger.info(f"DU_Update API result: {success, options_or_msg}")
-        
-        if not success:
-            if "No DU Assigned" in str(options_or_msg):
-                callback_ui_error("No DU Assigned")
-            else:
-                callback_ui_error(f"DU_Update error: {options_or_msg}")
-            turn_display_Off();
-            return
-        
-        options = options_or_msg
-        
-        # Store du_options in AppState
-        state.du_options = options
-
-        # success: return options to UI
-        callback_ui_success({
-            "duNumber": du_number,
-            "displayNumber": display_number,
-            "options": options,
-            "isEncryptionEnable": is_encryption_enable,
-            "encryptionKey": encryption_key  # 32-byte key or None
-        })
-        return
+        # 6. Fetch DU list from API and return
+        _fetch_and_return(
+            token, du_number, display_number,
+            result["is_encrypted"], result["encryption_key"],
+            callback_ui_success, callback_ui_error,
+        )
 
     except Exception as exc:
         safe_cleanup()
         callback_ui_error(f"Unexpected error: {exc}")
         return
-
-
-
-# helpers used above
-
-def parse_du_and_display_from_hex(hex_str: str):
-    """
-    EXACT JS BEHAVIOR:
-    duNumber     = Number("0x" + receivedData.slice(2, 10))
-    displayNumber= Number("0x" + receivedData.slice(10,18))
-    """
-    du_hex = hex_str[2:10]          # hex characters, not bytes
-    display_hex = hex_str[10:18]
-
-    return int(du_hex, 16), int(display_hex, 16)
-
-
-
-
-
-
-

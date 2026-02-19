@@ -74,17 +74,10 @@ class Config:
         except ValueError as e:
             raise ValueError(f"Invalid encryption key format in environment: {e}")
     else:
-        # Fallback: Try to load from utils/encKey.py (legacy support)
-        # WARNING: This is insecure and should only be used for development
-        try:
-            from utils.encKey import AES_KEY as LEGACY_KEY, AES_IV as LEGACY_IV
-            AES_KEY = LEGACY_KEY
-            AES_IV = LEGACY_IV
-            print("⚠️  WARNING: Using legacy hardcoded keys from utils/encKey.py")
-            print("⚠️  For production, set AES_KEY_HEX and AES_IV_HEX in environment")
-        except ImportError:
-            # No keys available - this is OK for features that don't need encryption
-            print("ℹ️  No encryption keys configured (neither environment nor legacy file)")
+        # No encryption keys in environment — encryption features will be unavailable
+        # SECURITY: Hardcoded keys (legacy encKey.py) have been removed.
+        # For production, set AES_KEY_HEX and AES_IV_HEX in your .env file.
+        print("ℹ️  No encryption keys configured. Set AES_KEY_HEX and AES_IV_HEX in .env")
 
 
 # Create a singleton instance for easy access
