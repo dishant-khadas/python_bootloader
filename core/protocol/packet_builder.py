@@ -128,8 +128,8 @@ def create_512byte_packet_v12(
     phone_bytes = phone_number.encode('ascii')[:16].ljust(16, b' ')
     packet[PHONE_START:PHONE_END] = phone_bytes
 
-    # Bytes 82-85: Device ID (4 bytes)
-    deviceId_bytes = device_id.encode('ascii')[:4].ljust(4, b' ')
+    # Bytes 82-89: Device ID (8 bytes)
+    deviceId_bytes = device_id.encode('ascii')[:8].ljust(8, b' ')
     packet[DEVICE_ID_START:DEVICE_ID_END] = deviceId_bytes
     
     # Bytes 82-509: Already zeros (bytearray default initialization)

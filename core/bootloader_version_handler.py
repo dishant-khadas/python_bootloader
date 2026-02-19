@@ -34,6 +34,7 @@ Usage:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
+from config import Config
 
 
 def _parse_version(version_str: str) -> tuple[int, ...]:
@@ -205,7 +206,8 @@ class V1_2VersionHandler(BootloaderVersionStrategy):
             original_hash=context.file_hash,
             employee_code=context.employee_code,
             username=context.username,
-            phone_number=context.phone_number
+            phone_number=context.phone_number,
+            device_id=config.DEVICE_ID
         )
         
         return packet
