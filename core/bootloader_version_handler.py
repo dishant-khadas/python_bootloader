@@ -34,7 +34,7 @@ Usage:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
-from config import Config
+from config import config
 
 
 def _parse_version(version_str: str) -> tuple[int, ...]:
