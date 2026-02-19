@@ -88,7 +88,7 @@ def create_512byte_packet_v12(
         Bytes 1-32: 32-byte SHA-256 filehash (raw bytes)
         Bytes 33-40: 8-byte employee code (ASCII, padded with spaces)
         Bytes 41-65: 25-byte username (ASCII, padded with spaces)
-        Bytes 66-81: 16-byte phone number (ASCII, padded with null)
+        Bytes 66-81: 16-byte phone number (ASCII, padded with spaces)
         Bytes 82-509: Padding (0x00)
         Byte 509: EOP (EOP_BYTE)
         Bytes 510-511: CRC16 (little-endian)
@@ -123,7 +123,7 @@ def create_512byte_packet_v12(
     
     # Bytes 66-81: Phone number (16 bytes)
     # Convert "+91-7347530726" to bytes, then pad with null bytes
-    phone_bytes = phone_number.encode('ascii')[:16].ljust(16, b'\x00')
+    phone_bytes = phone_number.encode('ascii')[:16].ljust(16, b' ')
     packet[PHONE_START:PHONE_END] = phone_bytes
     
     # Bytes 82-509: Already zeros (bytearray default initialization)
