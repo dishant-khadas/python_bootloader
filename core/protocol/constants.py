@@ -95,6 +95,9 @@ USERNAME_END = 66                   # [41:66] = 25 bytes
 PHONE_START = 66
 PHONE_END = 82                      # [66:82] = 16 bytes
 
+DEVICE_ID_START = 82
+DEVICE_ID_END = 86                   # [82:86] = 4 bytes
+
 # ============================================================
 # 64-byte Frame Constants (v1.0 legacy)
 # ============================================================
