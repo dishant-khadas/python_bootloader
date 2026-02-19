@@ -21,7 +21,7 @@ from core.protocol.constants import (
     HASH_START, HASH_END,
     EMPLOYEE_CODE_START, EMPLOYEE_CODE_END,
     USERNAME_START, USERNAME_END,
-    PHONE_START, PHONE_END,
+    PHONE_START, PHONE_END, DEVICE_ID_START, DEVICE_ID_END
 )
 from core.protocol.crc import calculate_crc16, calculate_little_endian
 from utils.logger import logger
@@ -78,7 +78,8 @@ def create_512byte_packet_v12(
     original_hash: str,
     employee_code: str = "CZART000",
     username: str = "TESTUSER",
-    phone_number: str = ""
+    phone_number: str = "",
+    device_id: str = ""
 ) -> bytes:
     """
     Create 512-byte packet for bootloader version 1.2+.
@@ -98,6 +99,7 @@ def create_512byte_packet_v12(
         employee_code (str): Employee code, max 8 chars. Default "CZART000".
         username (str): Username, max 25 chars. Default "TESTUSER".
         phone_number (str): Phone number (e.g., "+91-7347530726").
+        device_id (str): Device ID of the hardware (e.g., "41999990")
         
     Returns:
         bytes: 512-byte packet ready for encryption.
@@ -125,6 +127,10 @@ def create_512byte_packet_v12(
     # Convert "+91-7347530726" to bytes, then pad with null bytes
     phone_bytes = phone_number.encode('ascii')[:16].ljust(16, b' ')
     packet[PHONE_START:PHONE_END] = phone_bytes
+
+    # Bytes 82-85: Device ID (4 bytes)
+    deviceId_bytes = device_id.encode('ascii')[:4].ljust(4, b' ')
+    packet[DEVICE_ID_START:DEVICE_ID_END] = deviceId_bytes
     
     # Bytes 82-509: Already zeros (bytearray default initialization)
     
