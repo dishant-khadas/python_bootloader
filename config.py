@@ -37,7 +37,7 @@ class Config:
     # GPIO Configuration
     GPIOCHIP = os.getenv("GPIOCHIP", "gpiochip0")
     BL_DETECT_PIN = int(os.getenv("BL_DETECT_PIN", "17"))
-    DISPLAY_ON_PIN = int(os.getenv("DISPLAY_ON_PIN", "4"))
+    DISPLAY_ON_PIN = int(os.getenv("DISPLAY_ON_PIN", "27"))
     
     # Handshake Configuration
     HANDSHAKE_TIMEOUT = int(os.getenv("HANDSHAKE_TIMEOUT", "10"))
