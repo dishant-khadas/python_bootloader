@@ -23,8 +23,6 @@ import requests
 from typing import Any
 from utils.logger import logger
 
-# Default server URL if not set in environment
-DEFAULT_SERVER_URL = "https://bootloader.czarmetricsystem.com"
 
 
 def fetch_du_list(token: str, du_number: int, display_number: int) -> tuple[bool, Any, bool]:
@@ -53,7 +51,7 @@ def fetch_du_list(token: str, du_number: int, display_number: int) -> tuple[bool
             file_names = data.get("fileName", [])
             file_ids = data.get("fileId", [])
     """
-    base_url = os.getenv("SERVER_URL", DEFAULT_SERVER_URL)
+    base_url = os.getenv("SERVER_URL")
     url = f"{base_url.rstrip('/')}/api/dispenserUnit/DU_Update"
 
     # Device ID from environment or fallback value
