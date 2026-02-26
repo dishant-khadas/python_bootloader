@@ -74,22 +74,66 @@ cd dist/czar_bootloader
 
 ---
 
-## Distribution
+## Production Deployment
 
-To deploy on another Raspberry Pi:
-1. Copy the entire `dist/czar_bootloader/` folder
-2. Make sure `.env` file is present with correct configuration
-3. Run `./czar_bootloader`
+After building the executable, follow these steps to integrate the application into Raspberry Pi OS as a standard desktop application.
+
+### Step 9: Install to System
+The application should be moved to `/opt` for production use. We have provided an install script to automate this.
+
+```bash
+sudo ./scripts/install.sh
+```
+
+**What this script does:**
+1.  Moves the executable to `/opt/czar-bootloader` (standard for 3rd party apps).
+2.  Sets proper root ownership and execution permissions.
+3.  Creates a system-wide symlink at `/usr/local/bin/czar-bootloader`.
+4.  Installs the application icon to `/usr/share/pixmaps/`.
+5.  Creates a `.desktop` file in `/usr/share/applications/` to register the app in the system menu.
+
+---
+
+### Step 10: Launching the Application
+Once installed, you can launch the application in two ways:
+1.  **Desktop Menu**: Go to the Raspberry Pi Application Menu -> **Utilities** or **Development** -> **CZAR Bootloader**.
+2.  **Command Line**: Open a terminal and simply type:
+    ```bash
+    czar-bootloader
+    ```
+
+---
+
+### Uninstallation
+To cleanly remove the application and its integration from the system:
+
+```bash
+sudo ./scripts/uninstall.sh
+```
+
+---
+
+## Directory Structure (Standard Locations)
+Following Linux best practices (FHS):
+*   **Binary & Assets**: `/opt/czar-bootloader/`
+*   **System Symlink**: `/usr/local/bin/czar-bootloader`
+*   **Desktop Icon**: `/usr/share/pixmaps/czar-bootloader.png`
+*   **Menu Entry**: `/usr/share/applications/czar-bootloader.desktop`
 
 ---
 
 ## Troubleshooting
 
-### "No module named X" error
-Add the missing module to `hiddenimports` in `bootloader.spec` and rebuild.
+### Permissions for Serial/GPIO
+The application typically needs access to hardware. Ensure your user is in the `dialout` and `gpio` groups:
+```bash
+sudo usermod -a -G dialout,gpio $USER
+```
+*Note: You may need to logout and log back in for group changes to take effect.*
 
-### GUI doesn't appear
-Set `console=True` in `bootloader.spec` to see error messages.
+### Permission Denied
+If the app fails to start, ensure the installed binary is executable:
+```bash
+sudo chmod +x /opt/czar-bootloader/czar_bootloader
+```
 
-### Permission denied for serial/GPIO
-Run with sudo: `sudo ./czar_bootloader`

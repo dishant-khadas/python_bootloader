@@ -76,8 +76,8 @@ class App(ttk.Window):
         self.title("CZAR BOOTLOADER")
 
         # Phone size simulation
-        SIM_WIDTH = 480 
-        SIM_HEIGHT = 800 
+        SIM_WIDTH = 2000 
+        SIM_HEIGHT = 1200 
         self.geometry(f"{SIM_WIDTH}x{SIM_HEIGHT}")
 
         # Initialize Layout Manager with fixed size
