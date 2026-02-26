@@ -18,6 +18,9 @@ else:
 env_path = os.path.join(base_path, '.env')
 load_dotenv(env_path)
 
+# Import path utility for user-writable log directory
+from utils.path_utils import get_log_path
+
 
 class Config:
     """Application configuration loaded from environment variables with sensible defaults."""
@@ -47,8 +50,8 @@ class Config:
     ENCRYPTED_KEY_START = 395
     ENCRYPTED_KEY_END = 427  # exclusive, so bytes[395:427] gives 32 bytes
     
-    # Logging
-    LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
+    # Logging (in user-writable ~/.czar-bootloader/)
+    LOG_FILE = get_log_path("logs.csv")
     
     # Encryption Keys (SECURITY: Load from environment, not hardcoded)
     # These are AES-256-CBC encryption keys used for firmware decryption

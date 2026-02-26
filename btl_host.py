@@ -27,7 +27,6 @@ import time
 import serial
 import optparse
 from Crypto.Cipher import AES
-# from Cryptodome.Cipher import AES
 
 #------------------------------------------------------------------------------
 BL_CMD_UNLOCK       = 0xa0
@@ -68,12 +67,6 @@ devices = {
             "PIC32MX"   : [1024, 4096],
             "PIC32CM"   : [256, 2048],
 }
-
-#key variable has key to encrypt the .bin file blocks 
-key = bytes.fromhex(sys.argv[8])
-
-encryptionEnabled = sys.argv[9]
-
 
 #fixed initialization vector 
 ivkey = bytes([
@@ -177,6 +170,156 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         print()
 
 #------------------------------------------------------------------------------
+def run_btl_host(port_name, file_path, device_name, address_hex,
+                 encryption_key_hex=None, encryption_enabled='0',
+                 baud=115200, is_verbose=False, tune=False,
+                 sector_size=None, boot=False, swap=False,
+                 progress_callback=None):
+    """
+    Run the firmware update logic directly (callable from the GUI).
+    
+    This is the same logic as main() but accepts parameters directly
+    instead of reading from sys.argv, making it safe to import and call
+    from within the PyInstaller bundle.
+    
+    Args:
+        port_name: Serial port path (e.g. /dev/ttyAMA0)
+        file_path: Path to binary firmware file
+        device_name: Target device (e.g. 'pic32mz')
+        address_hex: Destination address (e.g. '0x9D000000')
+        encryption_key_hex: Hex string of AES key (or None)
+        encryption_enabled: '1' to enable encryption, '0' to disable
+        baud: UART baudrate (default 115200)
+        is_verbose: Enable verbose output
+        tune: Auto-tune UART baudrate
+        sector_size: Device sector size (required for PIC32MX)
+        boot: Enable write to bootloader area
+        swap: Swap banks after programming
+        progress_callback: Optional function(percent) for GUI progress updates
+    
+    Returns:
+        True on success
+    
+    Raises:
+        Exception on failure
+    """
+    device = device_name.upper()
+
+    if (device in devices):
+        if (device == "PIC32MX"):
+            if sector_size is None:
+                raise Exception('device sector size is required for PIC32MX')
+            erase_size = int(sector_size)
+        else:
+            erase_size = devices[device][0]
+        boot_size = devices[device][1]
+    else:
+        raise Exception('invalid device')
+
+    if (swap == True):
+        if ((device != "SAME5X") and (device != "SAMD5X") and (device != "PIC32MZ") and (device != "PIC32MK")):
+            raise Exception('Bank Swapping not supported on this device')
+
+    try:
+        address = int(address_hex, 0)
+    except ValueError as inst:
+        raise Exception('invalid address value: %s' % address_hex)
+
+    if (("SAM" in device) or ("PIC32C" in device)):
+        if address < boot_size and boot == False:
+            raise Exception('address is within the bootlaoder area, use --boot options to unlock writes')
+    else:
+        if boot == True:
+            raise Exception('--boot option is not supported on this device')
+
+    try:
+        port = serial.Serial(port_name, baud, timeout=1)
+    except serial.serialutil.SerialException as inst:
+        raise Exception(str(inst))
+
+    if tune:
+        verbose(is_verbose, 'Auto-tuning UART baudrate')
+        port.send_break(duration=0.01)
+        port.write(chr(0x55))
+
+    try:
+        data = data = [(x) for x in open(file_path, 'rb').read()]
+    except Exception as inst:
+        port.close()
+        raise Exception(str(inst))
+
+    while len(data) % erase_size > 0:
+        data += [0xff]
+
+    crc32_tab = crc32_tab_gen()
+    crc = crc32(crc32_tab, data)
+
+    size = len(data)
+
+    resp = send_request(port, BL_CMD_UNLOCK, uint32(8), uint32(address) + uint32(size))
+
+    if resp != BL_RESP_OK:
+        port.close()
+        raise Exception('Unlocking invalid response code (0x%02x). Check that your file size and address are correct.' % resp)
+
+    # Create data blocks of ERASE_SIZE each
+    blocks = [data[i:i + erase_size] for i in range(0, len(data), erase_size)]
+
+    # Pre-encrypt all blocks before serial transfer
+    if encryption_enabled == '1' and encryption_key_hex:
+        key = bytes.fromhex(encryption_key_hex)
+        encrypted_blocks = []
+        for blk in blocks:
+            cipher = AES.new(key, AES.MODE_CBC, ivkey)
+            encrypted_blocks.append(list(cipher.encrypt(bytes(blk))))
+        blocks = encrypted_blocks
+
+    addr = address
+
+    for idx, blk in enumerate(blocks):
+        percent = int((((idx+1)/len(blocks))*100))
+
+        # Report progress via callback (GUI) or print (CLI)
+        if progress_callback:
+            progress_callback(percent)
+        else:
+            print(percent, flush=True)
+
+        resp = send_request(port, BL_CMD_DATA, uint32(erase_size + 4), uint32(addr) + blk)
+        addr += erase_size
+
+        if resp != BL_RESP_OK:
+            port.close()
+            raise Exception('Programming invalid response code (0x%02x)' % resp)
+
+    # Send Verification command
+    resp = send_request(port, BL_CMD_VERIFY, uint32(4), uint32(crc))
+    print("response after programming : ",resp)
+
+    if resp == BL_RESP_CRC_OK:
+        verbose(is_verbose, '... success')
+    else:
+        port.close()
+        raise Exception('Verification ... fail (status = 0x%02x)' % resp)
+
+    # Send Reboot Command
+    if (swap == True):
+        verbose(is_verbose, 'Swapping Bank And Rebooting')
+        resp = send_request(port, BL_CMD_BKSWAP_RESET, uint32(16), uint32(0) * 4)
+    else:
+        verbose(is_verbose, 'Rebooting')
+        resp = send_request(port, BL_CMD_RESET, uint32(16), uint32(0) * 4)
+
+    if resp == BL_RESP_OK:
+        verbose(is_verbose, 'Reboot Done')
+    else:
+        port.close()
+        raise Exception('... Reset fail (status = 0x%02x)' % resp)
+
+    port.close()
+    return True
+
+#------------------------------------------------------------------------------
 def main():
     parser = optparse.OptionParser(usage = 'usage: %prog [options]')
     parser.add_option('-v', '--verbose', dest='verbose', help='enable verbose output', default=False, action='store_true')
@@ -204,116 +347,29 @@ def main():
     if options.address is None:
         error('destination address is required (use -a option)')
 
-    device = options.device.upper()
-
-    if (device in devices):
-        if (device == "PIC32MX"):
-            if options.sectSize is None:
-                error('device sector size is required (use -p option)')
-
-            ERASE_SIZE    = int(options.sectSize)
-        else:
-            ERASE_SIZE    = devices[device][0]
-
-        BOOTLOADER_SIZE     = devices[device][1]
-    else:
-        error('invalid device')
-
-    if (options.swap == True):
-        if ((device != "SAME5X") and (device != "SAMD5X") and (device != "PIC32MZ") and (device != "PIC32MK")):
-            error('Bank Swapping not supported on this device')
+    # Read encryption key and flag from positional args (legacy CLI usage)
+    encryption_key_hex = sys.argv[8] if len(sys.argv) > 8 else None
+    encryption_enabled = sys.argv[9] if len(sys.argv) > 9 else '0'
 
     try:
-        address = int(options.address, 0)
-    except ValueError as inst:
-        error('invalid address value: %s' % options.address)
-
-    if (("SAM" in device) or ("PIC32C" in device)):
-        if address < BOOTLOADER_SIZE and options.boot == False:
-            error('address is within the bootlaoder area, use --boot options to unlock writes')
-    else:
-        if options.boot == True:
-            error('--boot option is not supported on this device')
-
-    try:
-        port = serial.Serial(options.port, options.baud, timeout=1)
-    except serial.serialutil.SerialException as inst:
-        error(inst)
-
-    if options.tune:
-        verbose(options.verbose, 'Auto-tuning UART baudrate')
-        port.send_break(duration=0.01)
-        port.write(chr(0x55))
-
-    try:
-        data = data = [(x) for x in open(options.file, 'rb').read()]
-    except Exception as inst:
-        error(inst)
-
-    while len(data) % ERASE_SIZE > 0:
-        data += [0xff]
-
-    crc32_tab = crc32_tab_gen()
-    crc = crc32(crc32_tab, data)
-
-    size = len(data)
-
-    # verbose(options.verbose, 'Unlocking\n')
-    resp = send_request(port, BL_CMD_UNLOCK, uint32(8), uint32(address) + uint32(size))
-
-    if resp != BL_RESP_OK:
-        error('Unlocking invalid response code (0x%02x). Check that your file size and address are correct.' % resp)
-
-    # Create data blocks of ERASE_SIZE each
-    blocks = [data[i:i + ERASE_SIZE] for i in range(0, len(data), ERASE_SIZE)]
-
-    # Pre-encrypt all blocks before serial transfer (faster than encrypting per-block in the send loop)
-
-    if encryptionEnabled == '1':
-        encrypted_blocks = []
-        for blk in blocks:
-            cipher = AES.new(key, AES.MODE_CBC, ivkey)
-            encrypted_blocks.append(list(cipher.encrypt(bytes(blk))))
-        blocks = encrypted_blocks
-
-    addr = address
-
-    for idx, blk in enumerate(blocks):
-        percent = int((((idx+1)/len(blocks))*100))
-        print(percent, flush=True)
-
-        resp = send_request(port, BL_CMD_DATA, uint32(ERASE_SIZE + 4), uint32(addr) + blk)
-        addr += ERASE_SIZE
-
-        if resp != BL_RESP_OK:
-            error('Programming invalid response code (0x%02x)' % resp)
-
-    # Send Verification command
-    # verbose(options.verbose, 'Verification')
-
-    resp = send_request(port, BL_CMD_VERIFY, uint32(4), uint32(crc))
-    print("response after programming : ",resp)
-
-    if resp == BL_RESP_CRC_OK:
-        verbose(options.verbose, '... success')
-    else:
-        error('Verification ... fail (status = 0x%02x)' % resp)
-
-    # Send Reboot Command
-    if (options.swap == True):
-        verbose(options.verbose, 'Swapping Bank And Rebooting')
-        resp = send_request(port, BL_CMD_BKSWAP_RESET, uint32(16), uint32(0) * 4)
-    else:
-        verbose(options.verbose, 'Rebooting')
-        resp = send_request(port, BL_CMD_RESET, uint32(16), uint32(0) * 4)
-
-    if resp == BL_RESP_OK:
-        verbose(options.verbose, 'Reboot Done')
-    else:
-        error('... Reset fail (status = 0x%02x)' % resp)
-
-    port.close()
+        run_btl_host(
+            port_name=options.port,
+            file_path=options.file,
+            device_name=options.device,
+            address_hex=options.address,
+            encryption_key_hex=encryption_key_hex,
+            encryption_enabled=encryption_enabled,
+            baud=int(options.baud),
+            is_verbose=options.verbose,
+            tune=options.tune,
+            sector_size=options.sectSize,
+            boot=options.boot,
+            swap=options.swap,
+        )
+    except Exception as e:
+        error(str(e))
 
 #------------------------------------------------------------------------------
 
-main()
+if __name__ == "__main__":
+    main()

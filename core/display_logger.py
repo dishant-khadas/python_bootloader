@@ -19,6 +19,7 @@ import csv
 from datetime import datetime
 from typing import Optional
 from utils.logger import logger
+from utils.path_utils import get_log_path
 
 
 def write_display_log(hex_data: str) -> None:
@@ -72,10 +73,8 @@ def write_display_log(hex_data: str) -> None:
         }
         nozzle_data.append(nozzle)
     
-    # Prepare CSV file path
-    log_dir = os.path.join(os.path.dirname(__file__), "..", "Logs")
-    os.makedirs(log_dir, exist_ok=True)
-    csv_path = os.path.join(log_dir, "Display_log.csv")
+    # Prepare CSV file path (in user-writable ~/.czar-bootloader/)
+    csv_path = get_log_path("Display_log.csv")
     
     # Determine serial number
     serial_no = 1

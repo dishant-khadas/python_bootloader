@@ -27,6 +27,7 @@ import datetime
 import socket
 import requests
 from utils.logger import logger
+from utils.path_utils import get_log_path
 from config import config
 
 # Audit logging API endpoint — loaded from centralized config
@@ -35,10 +36,8 @@ API_URL = config.API_URL
 # Global counter for log serial numbers
 next_serial_number = 1
 
-# Path to local CSV log file (in Logs/ folder)
-log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Logs")
-os.makedirs(log_dir, exist_ok=True)
-csvfile_path = os.path.join(log_dir, "logs.csv")
+# Path to local CSV log file (in user-writable ~/.czar-bootloader/)
+csvfile_path = get_log_path("logs.csv")
 
 
 def get_device_ip() -> str:
