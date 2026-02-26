@@ -23,7 +23,7 @@ class Config:
     """Application configuration loaded from environment variables with sensible defaults."""
     
     # Server Configuration
-    SERVER_URL = os.getenv("SERVER_URL", "http://192.168.1.171:3000/")
+    SERVER_URL = os.getenv("SERVER_URL")
     API_URL = f"{SERVER_URL}api/logs/data-log"
     
     # Device Configuration
