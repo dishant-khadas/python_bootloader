@@ -42,7 +42,7 @@ class FileSelectionPage(ttk.Frame):
         container.place(relx=0.5, rely=0.4, anchor="center")
 
         # Title
-        ttk.Label(container, text="Select Firmware", font=lm.font(24)).pack(pady=lm.scaled(30))
+        ttk.Label(container, text="Select Firmware", font=lm.font(18)).pack(pady=lm.scaled(20))
 
         # DU Info Frame
         info_frame = ttk.Frame(container)
@@ -62,7 +62,7 @@ class FileSelectionPage(ttk.Frame):
         self.file_var = tk.StringVar()
         self.combobox = ttk.Combobox(
             container, textvariable=self.file_var,
-            font=lm.font(14), state="readonly", width=30,
+            font=lm.font(14), state="readonly", width=20,
             style="Custom.TCombobox"
         )
         self.combobox.pack(pady=lm.scaled(10), ipady=lm.scaled(5))
