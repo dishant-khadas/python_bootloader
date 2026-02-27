@@ -23,10 +23,10 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from utils.path_utils import get_app_data_dir
 
-# Determine log directory
-LOG_DIR = Path(__file__).parent.parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+# Determine log directory (user-writable ~/.czar-bootloader/)
+LOG_DIR = Path(get_app_data_dir())
 
 # Log file paths
 LOG_FILE = LOG_DIR / "bootloader.log"
