@@ -78,7 +78,7 @@ ivkey = bytes([
 #------------------------------------------------------------------------------
 def error(text):
     sys.stderr.write('\nError: %s\n' % text)
-    sys.exit(-1)
+    raise RuntimeError(text)
 
 #------------------------------------------------------------------------------
 def warning(text):

@@ -116,7 +116,7 @@ class FirmwareUpdatePage(ttk.Frame):
                     logger.warning(f"Warning: turn_display_Off failed: {e}")
                 self.controller.after(0, self.on_update_success)
                 
-        except Exception as e:
+        except (Exception, SystemExit) as e:
             error_msg = f"Firmware update failed: {str(e)}"
             logger.error(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
             try:
