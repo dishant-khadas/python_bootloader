@@ -65,8 +65,8 @@ class FirmwareUpdatePage(ttk.Frame):
         self.progress.pack(pady=lm.scaled(20))
         
         self.status_label = ttk.Label(
-            container, text="Please wait...", font=lm.font(20),
-            foreground="black", wraplength=lm.scaled(400), justify="center"
+            container, text="Please wait...", font=lm.font(14),
+            foreground="black", wraplength=lm.scaled(350), justify="center"
         )
         self.status_label.pack(pady=lm.scaled(20))
     
