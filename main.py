@@ -76,17 +76,39 @@ class App(ttk.Window):
         self.title("CZAR BOOTLOADER")
 
         # Phone size simulation
-        SIM_WIDTH = 480 
-        SIM_HEIGHT = 800 
-        self.geometry(f"{SIM_WIDTH}x{SIM_HEIGHT}")
-
+        #SIM_WIDTH = 800
+        #SIM_HEIGHT = 1280 
+        #self.geometry(f"{SIM_WIDTH}x{SIM_HEIGHT}")
+    
         # Initialize Layout Manager with fixed size
-        self.lm = LayoutManager(self, width=SIM_WIDTH, height=SIM_HEIGHT)
+        #self.lm = LayoutManager(self, width=SIM_WIDTH, height=SIM_HEIGHT)
+        
+        # Updated to use actual window size for better scaling on different screens
+        SIM_WIDTH = 800
+        SIM_HEIGHT = 1280
+        screem_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        
+        # Calculate scale factor based on height (or width, depending on design choice)
+        scale_w = screem_width / SIM_WIDTH
+        scale_h = screen_height / SIM_HEIGHT
+        scale = min(scale_w, scale_h)  # Use the smaller scale to fit within screen
+        
+        new_width = int(SIM_WIDTH * scale)
+        new_height = int(SIM_HEIGHT * scale)
+        self.geometry(f"{new_width}x{new_height}")
+        self.resizable(False, False)
+        self.lm = LayoutManager(self, width=new_width, height=new_height)
+        
+
         
         # Configure global style scaling
         style = ttk.Style()
-        default_btn_size = 12
-        style.configure('TButton', font=self.lm.font(default_btn_size))
+        BASE_FONT_SIZE = 12
+
+        scaled_font_size = int(BASE_FONT_SIZE * scale)
+        scaled_font_size = max(10, min(scaled_font_size, 20))  # Safe limits
+        style.configure('TButton', font=self.lm.font(scaled_font_size))
         
         # Custom Combobox Style
         style.configure('Custom.TCombobox',
@@ -107,7 +129,9 @@ class App(ttk.Window):
                   lightcolor=[('focus', '#cccccc')],
                   darkcolor=[('focus', '#cccccc')])
 
-        self.option_add('*TCombobox*Listbox.font', self.lm.font(14))
+        combobox_font_size = int(14 * scale)
+        combobox_font_size = max(10, min(combobox_font_size, 20))
+        self.option_add('*TCombobox*Listbox.font', self.lm.font(combobox_font_size))
 
         # Global state
         self.selected_ssid = None
