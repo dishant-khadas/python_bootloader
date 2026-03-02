@@ -83,19 +83,19 @@ class App(ttk.Window):
         # Initialize Layout Manager with fixed size
         #self.lm = LayoutManager(self, width=SIM_WIDTH, height=SIM_HEIGHT)
         
-        # Updated to use actual window size for better scaling on different screens
-        SIM_WIDTH = 800
-        SIM_HEIGHT = 1280
-        screem_width = self.winfo_screenwidth()
+        # Updated to use actual window size for better scaling on different screens especially for embedded touchscreen devices
+        #SIM_WIDTH = 800
+        #SIM_HEIGHT = 1280
+        screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
         
         # Calculate scale factor based on height (or width, depending on design choice)
-        scale_w = screem_width / SIM_WIDTH
-        scale_h = screen_height / SIM_HEIGHT
+        scale_w = screen_width / screen_width
+        scale_h = screen_height / screen_height
         scale = min(scale_w, scale_h)  # Use the smaller scale to fit within screen
         
-        new_width = int(SIM_WIDTH * scale)
-        new_height = int(SIM_HEIGHT * scale)
+        new_width = int(screen_width * scale)
+        new_height = int(screen_height * scale)
         self.geometry(f"{new_width}x{new_height}")
         self.resizable(False, False)
         self.lm = LayoutManager(self, width=new_width, height=new_height)
