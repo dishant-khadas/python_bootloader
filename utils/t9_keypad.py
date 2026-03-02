@@ -75,7 +75,7 @@ class T9Keypad(tk.Frame):
             {"number": "7", "letters": ["7", "p", "q", "r", "s"], "showletters": ["p", "q", "r", "s"]},
             {"number": "8", "letters": ["8", "t", "u", "v"], "showletters": ["t", "u", "v"]},
             {"number": "9", "letters": ["9", "w", "x", "y", "z"], "showletters": ["w", "x", "y", "z"]},
-            {"number": "10", "letters": ["@"], "showletters": [""]},
+            {"number": "10", "letters": ["?123"], "showletters": [""]},
             {"number": "0", "letters": ["0", " "], "showletters": [" "]},
             {"number": "11", "letters": ["⌫"], "showletters": [""]}
         ]
@@ -84,7 +84,7 @@ class T9Keypad(tk.Frame):
             {"number": "1", "letters": ["!"], "showletters": [""]},
             {"number": "2", "letters": ["@"], "showletters": [""]},
             {"number": "3", "letters": ["#"], "showletters": [""]},
-            {"number": "4", "letters": ["$"], "showletters": [""]},
+            {"number": "4", "letters": ["+"], "showletters": [""]},
             {"number": "5", "letters": ["%"], "showletters": [""]},
             {"number": "6", "letters": ["^"], "showletters": [""]},
             {"number": "7", "letters": ["&"], "showletters": [""]},

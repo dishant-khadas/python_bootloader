@@ -52,6 +52,8 @@ hidden_imports = [
     'core.bootloader_download',
     'core.du_reader',
     'core.logGenerator',
+    'btl_host',
+    'utils.path_utils',
 ]
 
 # Collect all submodules for packages that dynamically import
@@ -63,7 +65,6 @@ hidden_imports += collect_submodules('botocore')
 datas = [
     ('assets/czar.png', '.'),    # Logo image
     ('.env', '.'),               # Environment config (if exists)
-    ('btl_host.py', '.'),        # Firmware flashing script
 ]
 
 # Add ttkbootstrap themes and assets

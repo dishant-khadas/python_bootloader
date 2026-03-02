@@ -21,9 +21,8 @@ Functions:
 import os
 import requests
 from typing import Any
+from utils.logger import logger
 
-# Default server URL if not set in environment
-DEFAULT_SERVER_URL = "https://bootloader.czarmetricsystem.com"
 
 
 def fetch_du_list(token: str, du_number: int, display_number: int) -> tuple[bool, Any, bool]:
@@ -52,7 +51,7 @@ def fetch_du_list(token: str, du_number: int, display_number: int) -> tuple[bool
             file_names = data.get("fileName", [])
             file_ids = data.get("fileId", [])
     """
-    base_url = os.getenv("SERVER_URL", DEFAULT_SERVER_URL)
+    base_url = os.getenv("SERVER_URL")
     url = f"{base_url.rstrip('/')}/api/dispenserUnit/DU_Update"
 
     # Device ID from environment or fallback value
@@ -65,14 +64,14 @@ def fetch_du_list(token: str, du_number: int, display_number: int) -> tuple[bool
         "displayNumber": str(display_number)
     }
 
-    print(f"\n---- FETCH DU LIST API ----")
-    print(f"URL: {url}")
-    print(f"Headers: {headers}")
+    logger.debug(f"\n---- FETCH DU LIST API ----")
+    logger.info(f"URL: {url}")
+    logger.debug(f"Headers: {headers}")
 
     try:
         response = requests.get(url, headers=headers, timeout=15)
-        print("Status Code:", response.status_code)
-        print("Raw Response:", response.text)
+        logger.info(f"Status Code: {response.status_code}")
+        logger.debug(f"Raw Response: {response.text}")
         
         if response.status_code == 200:
             data = response.json()
@@ -87,7 +86,7 @@ def fetch_du_list(token: str, du_number: int, display_number: int) -> tuple[bool
                 return False, "Invalid Response Structure", False
         else:
             # Handle HTTP error responses
-            print("Error Response:", response.text)
+            logger.info(f"Error Response: {response.text}")
             try:
                 err_data = response.json()
                 msg = err_data.get("message", f"HTTP {response.status_code}")
@@ -96,6 +95,6 @@ def fetch_du_list(token: str, du_number: int, display_number: int) -> tuple[bool
             return False, msg, False
 
     except Exception as e:
-        print(f"Exception fetching DU list: {e}")
+        logger.error(f"Exception fetching DU list: {e}")
         return False, str(e), False
 

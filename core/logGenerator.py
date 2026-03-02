@@ -1,12 +1,14 @@
 """
-Log Generator Module for Python Bootloader Application.
+Audit Log Generator Module for Python Bootloader Application.
 
-This module provides logging functionality for tracking firmware update operations.
-It supports both local CSV file logging and remote API logging to a Node.js server.
+This module provides AUDIT LOGGING — structured error/event tracking for
+firmware update operations. It writes to both a local CSV file and a
+remote API endpoint.
 
-Log Storage:
-    - Local: logs.csv file in the application directory
-    - Remote: POST to /api/logs/data-log endpoint
+Logging Architecture (3 systems, different purposes):
+    1. logger (utils/logger.py) — Python logging for operational debug output
+    2. write_log (this module) — Audit trail: CSV + remote API for error tracking
+    3. write_display_log (display_logger.py) — Hardware data CSV from handshake
 
 Log Fields:
     - Serial Number, Log ID, Phone Number, IP Address
@@ -24,16 +26,18 @@ import csv
 import datetime
 import socket
 import requests
+from utils.logger import logger
+from utils.path_utils import get_log_path
+from config import config
 
-# Remote logging API endpoint
-# TODO: Move to config.py for consistency
-API_URL = "http://192.168.1.171:3000/api/logs/data-log"
+# Audit logging API endpoint — loaded from centralized config
+API_URL = config.API_URL
 
 # Global counter for log serial numbers
 next_serial_number = 1
 
-# Path to local CSV log file
-csvfile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
+# Path to local CSV log file (in user-writable ~/.czar-bootloader/)
+csvfile_path = get_log_path("logs.csv")
 
 
 def get_device_ip() -> str:
@@ -68,30 +72,30 @@ def generateLog(errorCode: str, payload: dict) -> None:
         errorCode (str): The error code (e.g., "E-51", "E-15").
         payload (dict): Dictionary containing log data fields (includes errorCode).
     """
-    print("Generate log function called!")
+    logger.info("Generate log function called!")
+    #     "logData": payload
+    # }
 
-    request_payload = {
-        "logData": payload
-    }
-
+    logger.info(f"Payload to Send :  {payload}")
     try:
         res = requests.post(
             API_URL,
-            json=request_payload,
+            # json=request_payload,
+            json=payload,
             timeout=10
         )
 
-        print("[LOG API] Status Code:", res.status_code)
-        print("[LOG API] Response:", res.text)
+        logger.info(f"[LOG API] Status Code: {res.status_code}")
+        logger.info(f"[LOG API] Response: {res.text}")
 
     except requests.exceptions.Timeout:
-        print("[LOG API] Request timed out")
+        logger.info("[LOG API] Request timed out")
 
     except requests.exceptions.ConnectionError:
-        print("[LOG API] Server unreachable")
+        logger.info("[LOG API] Server unreachable")
 
     except Exception as e:
-        print("[LOG API] Unexpected error:", str(e))
+        logger.error(f"[LOG API] Unexpected error: {str(e)}")
 
 
 def write_log(
@@ -154,7 +158,7 @@ def write_log(
                 else:
                     next_serial_number = 1
     except Exception as e:
-        print("E41 - Log File not Found:", e)
+        logger.info(f"E41 - Log File not Found: {e}")
         return
 
     # Get device IP address
@@ -198,10 +202,9 @@ def write_log(
     try:
         with open(csvfile_path, "a", newline="") as f:
             csv.writer(f).writerow(csv_row)
-        print("File has been written")
+        logger.info("File has been written")
         generateLog(errorCode, log_payload)
     except Exception as e:
-        print("E43 - Error writing Log:", e)
-        # Still try to send to Node.js server even if CSV write fails
+        logger.info(f"E43 - Error writing Log: {e}")
         generateLog(errorCode, log_payload)
         return

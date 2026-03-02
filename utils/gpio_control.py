@@ -24,17 +24,25 @@ Functions:
 
 import subprocess
 import platform
+import RPi.GPIO as GPIO
 
 from config import config
+from utils.logger import logger
+
 
 # Platform detection for mock mode on Windows
 IS_WINDOWS = platform.system() == "Windows"
 
 # GPIO pin configuration from centralized config
-BL_DETECT_Pin = config.BL_DETECT_PIN
+BL_DETECT_PIN = config.BL_DETECT_PIN
 DISPLAY_ON_PIN = config.DISPLAY_ON_PIN
 GPIOCHIP = config.GPIOCHIP
 
+
+## GPIO lib configuration
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(DISPLAY_ON_PIN, GPIO.OUT)
+GPIO.setup(BL_DETECT_PIN, GPIO.OUT)
 
 def run_cmd(cmd: str) -> None:
     """
@@ -50,14 +58,14 @@ def run_cmd(cmd: str) -> None:
         subprocess.CalledProcessError: If the command fails (caught and logged).
     """
     if IS_WINDOWS:
-        print(f"[MOCK-GPIO] Would execute: {cmd}")
+        logger.info(f"[MOCK-GPIO] Would execute: {cmd}")
         return
 
     try:
-        print("Executing:", cmd)
+        logger.info(f"Executing: {cmd}")
         subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
-        print("GPIO Command Error:", e)
+        logger.error(f"GPIO Command Error: {e}")
 
 
 def turn_BL_Detect_High() -> None:
@@ -67,9 +75,17 @@ def turn_BL_Detect_High() -> None:
     This signals to the connected hardware that the bootloader
     programming mode should be activated.
     """
-    run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_Pin}=1")
+
+
+
+
+## Below line used in  ubuntu 24.0 LTS os
+##    run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_PIN}=1")
+   
+    GPIO.output(BL_DETECT_PIN,GPIO.HIGH)
+    logger.info("BL Pin High")
     if not IS_WINDOWS:
-        print(f"GPIO {BL_DETECT_Pin} HIGH")
+       	logger.info(f"GPIO {BL_DETECT_PIN} HIGH")
 
 
 def turn_BL_Detect_Low() -> None:
@@ -79,9 +95,13 @@ def turn_BL_Detect_Low() -> None:
     This signals to the connected hardware that the bootloader
     programming mode should be deactivated.
     """
-    run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_Pin}=0")
+   
+    
+    GPIO.output(BL_DETECT_PIN, GPIO.LOW)
+    logger.info("BL DETECT TURNED LOW!")
+    ##run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_PIN}=0")
     if not IS_WINDOWS:
-        print(f"GPIO {BL_DETECT_Pin} LOW")
+        logger.info(f"GPIO {BL_DETECT_PIN} LOW")
 
 
 def turn_display_On() -> None:
@@ -90,8 +110,12 @@ def turn_display_On() -> None:
     
     This activates power to the connected display unit.
     """
-    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=1")
-    print("DISPLAY ON")
+
+
+    GPIO.output(DISPLAY_ON_PIN, GPIO.HIGH) 
+    logger.info("DISPLAY TURNED ON!")
+##    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=1")
+    logger.info("DISPLAY ON")
 
 
 def turn_display_Off() -> None:
@@ -100,8 +124,10 @@ def turn_display_Off() -> None:
     
     This cuts power to the connected display unit.
     """
-    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=0")
-    print("DISPLAY OFF")
+    GPIO.output(DISPLAY_ON_PIN, GPIO.LOW) 
+    logger.info("DISPLAY TURNED OFF!")
+##    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=0")
+    logger.info("DISPLAY OFF")
 
 
 def safe_cleanup() -> None:
@@ -118,12 +144,12 @@ def safe_cleanup() -> None:
     try:
         turn_BL_Detect_Low()
     except Exception as e:
-        print(f"Warning: turn_BL_Detect_Low failed: {e}")
+        logger.warning(f"Warning: turn_BL_Detect_Low failed: {e}")
     
     try:
         turn_display_Off()
     except Exception as e:
-        print(f"Warning: turn_display_Off failed: {e}")
+        logger.warning(f"Warning: turn_display_Off failed: {e}")
 
 
 def safe_bl_low() -> None:
@@ -137,4 +163,4 @@ def safe_bl_low() -> None:
     try:
         turn_BL_Detect_Low()
     except Exception as e:
-        print(f"Warning: turn_BL_Detect_Low failed: {e}")
+        logger.warning(f"Warning: turn_BL_Detect_Low failed: {e}")

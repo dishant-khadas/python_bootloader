@@ -12,6 +12,8 @@ from ttkbootstrap.constants import PRIMARY, WARNING
 
 from utils.gpio_control import safe_cleanup
 from core.du_reader import read_du_from_serial
+from core.app_state import AppState
+from utils.logger import logger
 
 
 class ProgramPage(ttk.Frame):
@@ -47,35 +49,89 @@ class ProgramPage(ttk.Frame):
         self.status_label = ttk.Label(self, text="", font=lm.font(14), bootstyle=WARNING)
         self.status_label.pack(pady=lm.scaled(20))
 
+    def on_show(self):
+        """Called when page is shown - print current AppState for debugging."""
+        state = AppState.get_instance()
+        
+        logger.info("=" * 70)
+        logger.info("PROGRAM PAGE - Current AppState:")
+        logger.info("=" * 70)
+        
+        # Authentication
+        logger.info("Authentication:")
+        logger.info(f"  Phone Number: {state.phone_number or 'Not set'}")
+        logger.info(f"  JWT Token: {'Present' if state.jwt_token else 'Not set'}")
+        if state.jwt_token:
+            logger.info(f"    Token (first 20 chars): {state.jwt_token[:20]}...")
+        
+        # DU/Display Information
+        logger.info("\nDU/Display Information:")
+        logger.info(f"  DU Number: {state.du_number or 'Not set'}")
+        logger.info(f"  Display Number: {state.display_number or 'Not set'}")
+        logger.info(f"  Raw 512 bytes: {'Present' if state.raw_512_bytes else 'Not set'}")
+        
+        # Bootloader Version
+        logger.info("\nBootloader Version:")
+        if state.bootloader_version:
+            logger.info(f"  Version (tuple): {state.bootloader_version}")
+            logger.info(f"  Version (string): {state.bootloader_version_string}")
+        else:
+            logger.info("  Not extracted yet")
+        
+        # Encryption
+        logger.info("\nEncryption:")
+        logger.info(f"  Encryption Enabled: {state.is_encryption_enabled}")
+        logger.info(f"  Encryption Key: {'Present (32 bytes)' if state.encryption_key else 'Not set'}")
+        if state.encryption_key:
+            logger.info(f"    Key (first 8 bytes): {state.encryption_key[:8].hex()}...")
+        
+        # Firmware Selection
+        logger.info("\nFirmware Selection:")
+        logger.info(f"  Selected File ID: {state.selected_file_id or 'Not selected'}")
+        logger.info(f"  Selected File Name: {state.selected_file_name or 'Not selected'}")
+        logger.info(f"  DU Options: {'Present' if state.du_options else 'Not set'}")
+        if state.du_options:
+            file_count = len(state.du_options.get('fileName', []))
+            logger.info(f"    Available Files: {file_count}")
+        
+        # Complete Summary
+        logger.info("\nState Summary:")
+        summary = state.get_state_summary()
+        for key, value in summary.items():
+            logger.info(f"  {key}: {value}")
+        
+        logger.info("=" * 70)
+
     def start_program_logic(self):
         """Start the DU detection and handshake process."""
         from pages.download_page import DownloadPage
         from pages.login_page import LoginPage
         
-        print("Starting Program Logic - Fetching from Server")
-        
-        # Show download page as loading screen
+        logger.info("Starting Program Logic - Fetching from Server")
         dp = self.controller.frames[DownloadPage]
         dp.file_id = None
         dp.status_label.config(text="Please Wait...")
         self.controller.show_frame(DownloadPage)
         
         def ui_message(msg):
-            print("STATUS:", msg)
+            logger.info(f"STATUS: {msg}")
             self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def ui_error(msg):
-            print("ERROR:", msg)
+            logger.error(f"ERROR: {msg}")
             safe_cleanup()
             self.controller.after(0, lambda: self.controller.show_error(
                 "FAILED TO HANDSHAKE", msg, LoginPage
             ))
 
+        # Read authentication from AppState
+        state = AppState.get_instance()
+        
         threading.Thread(
             target=read_du_from_serial,
             args=(
-                self.controller.token,
-                getattr(self.controller, "phone", ""),
+                state.jwt_token,
+                state.phone_number or "",
                 ui_message,
                 self.ui_success,
                 ui_error,
@@ -94,23 +150,23 @@ class ProgramPage(ttk.Frame):
         self.controller.show_frame(DownloadPage)
 
         def on_ui_message(msg):
-            print(f"[DU Reader] {msg}")
+            logger.info(f"[DU Reader] {msg}")
             self.controller.after(0, lambda: dp.status_label.config(text=msg))
 
         def on_ui_success(data):
             self.controller.after(0, lambda: self.ui_success(data))
 
         def on_ui_error(err_msg):
-            print(f"[DU Reader Error] {err_msg}")
+            logger.info(f"[DU Reader Error] {err_msg}")
             self.controller.after(0, lambda: self.controller.show_error(
                 "FAILED TO HANDSHAKE", err_msg, ProgramPage
             ))
 
         def run_thread():
-            token = self.controller.token
+            state = AppState.get_instance()
             read_du_from_serial(
-                token=token,
-                phoneNo=getattr(self.controller, "phone", ""),
+                token=state.jwt_token,
+                phoneNo=state.phone_number or "",
                 callback_ui_message=on_ui_message,
                 callback_ui_success=on_ui_success,
                 callback_ui_error=on_ui_error
@@ -129,11 +185,13 @@ class ProgramPage(ttk.Frame):
         disp_num = data.get("displayNumber")
         enc_key = data.get("encryptionKey")
 
-        print("SUCCESS — DU List:", options)
+
+        logger.info(f"SUCCESS — DU List: {options}")
         if enc_key:
-            print(f"Encryption key stored (hex): {enc_key.hex()}")
+            logger.info(f"Encryption key stored: {len(enc_key)} bytes")
         
-        # Save info
+        # Note: DU data is already stored in AppState by du_reader.py
+        # Just update the controller's du_options for backward compatibility
         self.controller.du_options = options
         self.controller.du_options["duNumber"] = du_num
         self.controller.du_options["displayNumber"] = disp_num
@@ -145,7 +203,11 @@ class ProgramPage(ttk.Frame):
         file_ids = options.get("fileId", [])
         
         if len(file_names) == 1 and len(file_ids) == 1:
-            print(f"Auto-downloading single file: {file_names[0]}")
+            logger.info(f"Auto-downloading single file: {file_names[0]}")
+            # Store selected file in AppState
+            state = AppState.get_instance()
+            state.set_firmware_selection(file_ids[0], file_names[0])
+            
             download_page = self.controller.frames[DownloadPage]
             download_page.file_id = file_ids[0]
             self.controller.show_frame(DownloadPage)
@@ -155,5 +217,5 @@ class ProgramPage(ttk.Frame):
     def ui_error(self, msg):
         """Handle DU detection error."""
         from tkinter import messagebox
-        print("ERROR:", msg)
+        logger.error(f"ERROR: {msg}")
         messagebox.showerror("Error", msg)

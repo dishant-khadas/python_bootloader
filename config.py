@@ -18,12 +18,15 @@ else:
 env_path = os.path.join(base_path, '.env')
 load_dotenv(env_path)
 
+# Import path utility for user-writable log directory
+from utils.path_utils import get_log_path
+
 
 class Config:
     """Application configuration loaded from environment variables with sensible defaults."""
     
     # Server Configuration
-    SERVER_URL = os.getenv("SERVER_URL", "http://192.168.1.171:3000/")
+    SERVER_URL = os.getenv("SERVER_URL")
     API_URL = f"{SERVER_URL}api/logs/data-log"
     
     # Device Configuration
@@ -47,8 +50,37 @@ class Config:
     ENCRYPTED_KEY_START = 395
     ENCRYPTED_KEY_END = 427  # exclusive, so bytes[395:427] gives 32 bytes
     
-    # Logging
-    LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.csv")
+    # Logging (in user-writable ~/.czar-bootloader/)
+    LOG_FILE = get_log_path("logs.csv")
+    
+    # Encryption Keys (SECURITY: Load from environment, not hardcoded)
+    # These are AES-256-CBC encryption keys used for firmware decryption
+    AES_KEY_HEX = os.getenv("AES_KEY_HEX")
+    AES_IV_HEX = os.getenv("AES_IV_HEX")
+    
+    # Parse hex keys to bytes (only if provided in environment)
+    AES_KEY: bytes | None = None
+    AES_IV: bytes | None = None
+    
+    if AES_KEY_HEX and AES_IV_HEX:
+        try:
+            AES_KEY = bytes.fromhex(AES_KEY_HEX)
+            AES_IV = bytes.fromhex(AES_IV_HEX)
+            
+            # Validate key sizes
+            if len(AES_KEY) != 32:  # 256-bit key
+                raise ValueError(f"AES_KEY must be 32 bytes (256 bits), got {len(AES_KEY)} bytes")
+            if len(AES_IV) != 16:   # 128-bit IV
+                raise ValueError(f"AES_IV must be 16 bytes (128 bits), got {len(AES_IV)} bytes")
+                
+            print(f"✓ Encryption keys loaded from environment (Key: {len(AES_KEY)} bytes, IV: {len(AES_IV)} bytes)")
+        except ValueError as e:
+            raise ValueError(f"Invalid encryption key format in environment: {e}")
+    else:
+        # No encryption keys in environment — encryption features will be unavailable
+        # SECURITY: Hardcoded keys (legacy encKey.py) have been removed.
+        # For production, set AES_KEY_HEX and AES_IV_HEX in your .env file.
+        print("ℹ️  No encryption keys configured. Set AES_KEY_HEX and AES_IV_HEX in .env")
 
 
 # Create a singleton instance for easy access

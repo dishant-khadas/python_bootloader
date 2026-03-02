@@ -18,6 +18,8 @@ import os
 import csv
 from datetime import datetime
 from typing import Optional
+from utils.logger import logger
+from utils.path_utils import get_log_path
 
 
 def write_display_log(hex_data: str) -> None:
@@ -71,10 +73,8 @@ def write_display_log(hex_data: str) -> None:
         }
         nozzle_data.append(nozzle)
     
-    # Prepare CSV file path
-    log_dir = os.path.join(os.path.dirname(__file__), "..", "Logs")
-    os.makedirs(log_dir, exist_ok=True)
-    csv_path = os.path.join(log_dir, "Display_log.csv")
+    # Prepare CSV file path (in user-writable ~/.czar-bootloader/)
+    csv_path = get_log_path("Display_log.csv")
     
     # Determine serial number
     serial_no = 1
@@ -85,9 +85,7 @@ def write_display_log(hex_data: str) -> None:
                 if len(lines) > 1:  # Has header + data
                     serial_no = len(lines)
         except Exception as e:
-            print(f"Error reading display log: {e}")
-    
-    # CSV header
+            logger.info(f"Error reading display log: {e}")
     header = [
         "SrNO", "Date", "Time", "DuNo", "dispSrNo", "displayShaSign", "firmware", 
         "autoMode", "onoff",
@@ -125,7 +123,7 @@ def write_display_log(hex_data: str) -> None:
                 writer.writerow(header)
             writer.writerow(row)
         
-        print(f"Display log written: Serial {serial_no}")
+        logger.info(f"Display log written: Serial {serial_no}")
         
     except Exception as e:
-        print(f"Error writing display log: {e}")
+        logger.info(f"Error writing display log: {e}")

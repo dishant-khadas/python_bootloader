@@ -9,6 +9,7 @@ ScanPage (if no WiFi connection).
 import os
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
+from utils.logger import logger
 
 
 class SplashScreen(ttk.Frame):
@@ -65,9 +66,7 @@ class SplashScreen(ttk.Frame):
         except Exception as e:
             # Fallback if image can't be loaded
             ttk.Label(container, text="CZAR", font=lm.font(48)).pack()
-            print(f"Error loading splash image: {e}")
-        
-        # Animation state
+            logger.info(f"Error loading splash image: {e}")
         self.alpha = 0.0
         self.animation_running = False
     

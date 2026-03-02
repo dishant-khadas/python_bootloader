@@ -7,7 +7,6 @@ shows real-time progress updates.
 
 import os
 import sys
-import subprocess
 import threading
 import time
 import ttkbootstrap as ttk
@@ -16,6 +15,9 @@ from ttkbootstrap.constants import INFO
 from config import config
 from utils.gpio_control import safe_cleanup, turn_display_Off
 from core.logGenerator import write_log
+from core.app_state import AppState
+from utils.logger import logger
+from btl_host import run_btl_host
 
 
 class FirmwareUpdatePage(ttk.Frame):
@@ -63,8 +65,8 @@ class FirmwareUpdatePage(ttk.Frame):
         self.progress.pack(pady=lm.scaled(20))
         
         self.status_label = ttk.Label(
-            container, text="Please wait...", font=lm.font(20),
-            foreground="black", wraplength=lm.scaled(400), justify="center"
+            container, text="Please wait...", font=lm.font(14),
+            foreground="black", wraplength=lm.scaled(350), justify="center"
         )
         self.status_label.pack(pady=lm.scaled(20))
     
@@ -82,101 +84,46 @@ class FirmwareUpdatePage(ttk.Frame):
         threading.Thread(target=self.run_btl_host, daemon=True).start()
     
     def run_btl_host(self):
-        """Run btl_host.py with the specified arguments."""
-        from pages.login_page import LoginPage
-        
+        """Run the firmware update logic directly within the application."""
         try:
-            # Get path to btl_host.py - handle PyInstaller bundle
-            if getattr(sys, 'frozen', False):
-                # Running as PyInstaller bundle
-                # Data files are in sys._MEIPASS (the _internal folder)
-                base_dir = sys._MEIPASS
-            else:
-                # Running as normal Python script
-                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            
-            default_btl_path = os.path.join(base_dir, "btl_host.py")
-            btl_host_path = os.getenv("BTL_HOST_PATH", default_btl_path)
-            
-            print(f"[DEBUG] Looking for btl_host.py at: {btl_host_path}")
-            print(f"[DEBUG] File exists: {os.path.exists(btl_host_path)}")
-            python_path = os.getenv("PYTHON_PATH", "python3")
             serial_port = os.getenv("SERIAL_PORT", "/dev/ttyAMA0")
             
-            # Build command
-            cmd = [
-                python_path,
-                btl_host_path,
-                "-v",
-                "-i", serial_port,
-                "-d", "pic32mz",
-                "-a", "0x9D000000",
-                self.encryption_key_hex,
-                self.is_enc_flag,
-                "-f", self.output_path
-            ]
+            # Progress callback for real-time GUI updates
+            def progress_callback(percent):
+                logger.info(f"[FIRMWARE UPDATE PROGRESS]: {percent}%")
+                display_text = f"{percent}%"
+                self.controller.after(0, lambda t=display_text: self.status_label.config(text=t))
+
+            logger.info(f"[FIRMWARE UPDATE] Starting update on port {serial_port}")
             
-            print(f"[FIRMWARE UPDATE] Running command: {' '.join(cmd)}")
-            
-            # Run process
-            self.process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1  # Line buffered
+            # Call btl_host logic directly (same Python environment, same bundled libs)
+            success = run_btl_host(
+                port_name=serial_port,
+                file_path=self.output_path,
+                device_name="pic32mz",
+                address_hex="0x9D000000",
+                encryption_key_hex=self.encryption_key_hex,
+                encryption_enabled=self.is_enc_flag,
+                progress_callback=progress_callback
             )
             
-            # Read stdout in real-time with error handling
-            try:
-                for line in iter(self.process.stdout.readline, ''):
-                    if line:
-                        output_text = line.strip()
-                        print(f"[BTL_HOST STDOUT]: {output_text}")
-                        
-                        # Format percentage display
-                        try:
-                            float(output_text)
-                            display_text = f"{output_text}%"
-                        except ValueError:
-                            display_text = output_text
-                        
-                        self.controller.after(0, lambda t=display_text: self.status_label.config(text=t))
-            except (BrokenPipeError, IOError) as e:
-                print(f"[FIRMWARE UPDATE] Pipe error (process may have ended): {e}")
-            
-            # Wait for completion
-            self.process.wait()
-            return_code = self.process.returncode
-            
-            print(f"[FIRMWARE UPDATE] Process exited with code {return_code}")
-            
-            # Wait then turn off display
-            time.sleep(3)
+            if success:
+                logger.info("[FIRMWARE UPDATE] Process completed successfully")
+                time.sleep(1)
+                try:
+                    turn_display_Off()
+                except Exception as e:
+                    logger.warning(f"Warning: turn_display_Off failed: {e}")
+                self.controller.after(0, self.on_update_success)
+                
+        except (Exception, SystemExit) as e:
+            error_msg = f"Firmware update failed: {str(e)}"
+            logger.error(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
             try:
                 turn_display_Off()
-            except Exception as e:
-                print(f"Warning: turn_display_Off failed: {e}")
-            
-            # Update UI based on result
-            if return_code == 0:
-                self.controller.after(0, self.on_update_success)
-            else:
-                stderr_output = self.process.stderr.read()
-                print(f"[BTL_HOST STDERR]: {stderr_output}")
-                
-                # Parse error to show clean user-friendly message
-                error_detail = self._parse_btl_error(stderr_output, return_code)
-                self.controller.after(0, lambda e=error_detail: self.on_update_error(e))
-                
-        except FileNotFoundError:
-            error_msg = f"btl_host.py not found at {btl_host_path}"
-            print(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
-            self.controller.after(0, lambda: self.on_update_error(error_msg))
-        except Exception as e:
-            error_msg = f"Firmware update error: {e}"
-            print(f"[FIRMWARE UPDATE ERROR]: {error_msg}")
-            self.controller.after(0, lambda: self.on_update_error(error_msg))
+            except:
+                pass
+            self.controller.after(0, lambda msg=error_msg: self.on_update_error(msg))
     
     def _parse_btl_error(self, stderr_output: str, return_code: int) -> str:
         """
@@ -221,9 +168,9 @@ class FirmwareUpdatePage(ttk.Frame):
         if self.output_path and os.path.exists(self.output_path):
             try:
                 os.remove(self.output_path)
-                print(f"[CLEANUP] Deleted temp file: {self.output_path}")
+                logger.info(f"[CLEANUP] Deleted temp file: {self.output_path}")
             except Exception as e:
-                print(f"[CLEANUP WARNING] Failed to delete temp file: {e}")
+                logger.warning(f"[CLEANUP WARNING] Failed to delete temp file: {e}")
     
     def on_update_success(self):
         """Called when firmware update completes successfully."""
@@ -233,6 +180,49 @@ class FirmwareUpdatePage(ttk.Frame):
         self.progress.stop()
         self.status_label.config(text="Firmware updated successfully!", foreground="green")
         
+        # Print complete AppState AFTER successful firmware update
+        state = AppState.get_instance()
+        logger.info("="*80)
+        logger.info("🎉 FIRMWARE UPDATE SUCCESSFUL - Final AppState Summary")
+        logger.info("="*80)
+        
+        logger.info("\n✅ Authentication:")
+        logger.info(f"   Phone Number: {state.phone_number}")
+        logger.info(f"   JWT Token: {'Present' if state.jwt_token else 'Missing'}")
+        
+        logger.info("\n✅ Device Information:")
+        logger.info(f"   DU Number: {state.du_number}")
+        logger.info(f"   Display Number: {state.display_number}")
+        
+        logger.info("\n✅ Bootloader Version (from bytes 392-393):")
+        if state.bootloader_version:
+            logger.info(f"   Version Tuple: {state.bootloader_version}")
+            logger.info(f"   Version String: {state.bootloader_version_string}")
+        else:
+            logger.info("   Not available")
+        
+        logger.info("\n✅ Encryption:")
+        logger.info(f"   Encryption Enabled: {state.is_encryption_enabled}")
+        if state.encryption_key:
+            logger.info(f"   Encryption Key: Present (32 bytes)")
+            logger.info(f"   Key Preview: {state.encryption_key[:8].hex()}...")
+        else:
+            logger.info(f"   Encryption Key: Not required")
+        
+        logger.info("\n✅ Firmware Update:")
+        logger.info(f"   File ID: {state.selected_file_id}")
+        logger.info(f"   File Name: {state.selected_file_name}")
+        logger.info(f"   Status: Successfully Flashed ✓")
+        
+        logger.info("\n✅ Complete State Summary:")
+        summary = state.get_state_summary()
+        for key, value in summary.items():
+            logger.info(f"   {key}: {value}")
+        
+        logger.info("\n" + "="*80)
+        logger.info("✅ All operations completed successfully!")
+        logger.info("="*80 + "\n")
+        
         # Log successful firmware update
         write_log(
             errorCode="S-01",
@@ -240,10 +230,10 @@ class FirmwareUpdatePage(ttk.Frame):
             result="Success",
             description="Firmware updated successfully",
             device_id=config.DEVICE_ID,
-            phoneNo=getattr(self.controller, "phone", ""),
-            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
-            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
-            fileName=os.path.basename(self.output_path) if self.output_path else "",
+            phoneNo=state.phone_number or "",
+            duNumber=state.du_number or "",
+            displayNumber=state.display_number or "",
+            fileName=state.selected_file_name or "",
         )
         
         self.controller.after(3000, lambda: self.controller.show_frame(LoginPage))
@@ -260,13 +250,13 @@ class FirmwareUpdatePage(ttk.Frame):
         write_log(
             errorCode="E-15",
             errorName="Firmware Update Failed",
-            result="Failed",
+            result="Fail",
             description=error_msg,
             device_id=config.DEVICE_ID,
             phoneNo=getattr(self.controller, "phone", ""),
             duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
             displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
-            fileName=os.path.basename(self.output_path) if self.output_path else "",
+            fileName=getattr(self.controller, "selected_file_name", ""),
         )
         
         safe_cleanup()
