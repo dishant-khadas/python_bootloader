@@ -75,40 +75,25 @@ class App(ttk.Window):
         super().__init__(themename="litera")
         self.title("CZAR BOOTLOADER")
 
-        # Phone size simulation
-        #SIM_WIDTH = 800
-        #SIM_HEIGHT = 1280 
-        #self.geometry(f"{SIM_WIDTH}x{SIM_HEIGHT}")
-    
-        # Initialize Layout Manager with fixed size
-        #self.lm = LayoutManager(self, width=SIM_WIDTH, height=SIM_HEIGHT)
-        
-        # Updated to use actual window size for better scaling on different screens especially for embedded touchscreen devices
-        #SIM_WIDTH = 800
-        #SIM_HEIGHT = 1280
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        
-        # Calculate scale factor based on height (or width, depending on design choice)
-        scale_w = screen_width / screen_width
-        scale_h = screen_height / screen_height
-        scale = min(scale_w, scale_h)  # Use the smaller scale to fit within screen
-        
-        new_width = int(screen_width * scale)
-        new_height = int(screen_height * scale)
-        self.geometry(f"{new_width}x{new_height}")
-        self.resizable(False, False)
-        self.lm = LayoutManager(self, width=new_width, height=new_height)
-        
+        # Open in full-screen mode (hides title bar — comment out to show close/minimize buttons)
+        # self.attributes('-fullscreen', True)
+        # Note: state('zoomed') is Windows-only; use attributes('-zoomed', True) on Linux
+        self.attributes('-zoomed', True)
 
+        # Get actual screen dimensions for the layout manager
+
+
+        # self.update_idletasks()
+        SIM_WIDTH = self.winfo_screenwidth()
+        SIM_HEIGHT = self.winfo_screenheight()
+
+        # Initialize Layout Manager with actual screen size
+        self.lm = LayoutManager(self, width=SIM_WIDTH, height=SIM_HEIGHT)
         
         # Configure global style scaling
         style = ttk.Style()
-        BASE_FONT_SIZE = 12
-
-        scaled_font_size = int(BASE_FONT_SIZE * scale)
-        scaled_font_size = max(10, min(scaled_font_size, 20))  # Safe limits
-        style.configure('TButton', font=self.lm.font(scaled_font_size))
+        default_btn_size = 12
+        style.configure('TButton', font=self.lm.font(default_btn_size))
         
         # Custom Combobox Style
         style.configure('Custom.TCombobox',
@@ -129,9 +114,7 @@ class App(ttk.Window):
                   lightcolor=[('focus', '#cccccc')],
                   darkcolor=[('focus', '#cccccc')])
 
-        combobox_font_size = int(14 * scale)
-        combobox_font_size = max(10, min(combobox_font_size, 20))
-        self.option_add('*TCombobox*Listbox.font', self.lm.font(combobox_font_size))
+        self.option_add('*TCombobox*Listbox.font', self.lm.font(14))
 
         # Global state
         self.selected_ssid = None
