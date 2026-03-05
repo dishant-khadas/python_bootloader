@@ -145,7 +145,7 @@ def send_request(port, cmd, size, data):
         else:
             return resp
 
-    error('no response received, giving up')
+    error('no response received')
 
 # Print iterations progress
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '|'):

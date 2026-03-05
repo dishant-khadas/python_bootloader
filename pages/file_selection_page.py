@@ -68,17 +68,28 @@ class FileSelectionPage(ttk.Frame):
         )
         self.selector_frame.pack(pady=lm.scaled(10), ipadx=lm.scaled(10))
 
+        self.selector_inner = tk.Frame(self.selector_frame, bg="#ffffff")
+        self.selector_inner.pack(fill="x", padx=lm.scaled(10), pady=lm.scaled(8))
+
         self.selector_label = tk.Label(
-            self.selector_frame, text="Select File  \u25bc",
+            self.selector_inner, text="Select File",
             font=lm.font(12), bg="#ffffff", fg="#333333",
-            anchor="w", padx=lm.scaled(10), pady=lm.scaled(8),
-            width=22
+            anchor="w", width=22
         )
-        self.selector_label.pack()
+        self.selector_label.pack(side="left", fill="x", expand=True)
+
+        self.selector_arrow = tk.Label(
+            self.selector_inner, text="\u25bc",
+            font=lm.font(12), bg="#ffffff", fg="#333333",
+            anchor="e"
+        )
+        self.selector_arrow.pack(side="right")
 
         # Bind tap
         self.selector_frame.bind("<Button-1>", self._toggle_dropdown)
         self.selector_label.bind("<Button-1>", self._toggle_dropdown)
+        self.selector_arrow.bind("<Button-1>", self._toggle_dropdown)
+        self.selector_inner.bind("<Button-1>", self._toggle_dropdown)
 
         # ---- Dropdown overlay (placed on self, the page frame) ----
         self.dropdown_frame = tk.Frame(
@@ -159,7 +170,7 @@ class FileSelectionPage(ttk.Frame):
     def _select_file(self, filename):
         """Handle file selection from dropdown."""
         self.selected_file = filename
-        self.selector_label.config(text=f"{filename}  \u25bc")
+        self.selector_label.config(text=filename)
         self._close_dropdown()
 
     def on_show(self):
@@ -173,7 +184,7 @@ class FileSelectionPage(ttk.Frame):
 
         # Reset dropdown state
         self.selected_file = ""
-        self.selector_label.config(text="Select File  \u25bc")
+        self.selector_label.config(text="Select File")
         self._close_dropdown()
 
     def on_next(self):
