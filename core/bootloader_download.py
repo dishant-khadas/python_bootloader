@@ -424,7 +424,7 @@ def _send_and_trigger(
     callback_message("Preparing firmware update...")
 
     # Wait 5 seconds before firmware update
-    time.sleep(5)
+    time.sleep(6)
 
     # Save decrypted file to temp location
     try:
