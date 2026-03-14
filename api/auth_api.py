@@ -80,7 +80,8 @@ def login_api(phone: str, password: str) -> tuple[bool, str, str]:
             data = res.json()
             if "token" in data:
                 logger.info(f"Login successful for phone: {phone}")
-                return True, data["token"], "success"
+                # return True, data["token"], "success"
+                return True, data, "success"
 
         # Log failed login attempt
         logger.warning(f"Login failed for phone: {phone}")

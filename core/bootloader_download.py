@@ -315,13 +315,14 @@ def _prepare_packet(
 
         strategy = BootloaderVersionFactory.get_strategy(bootloader_version)
         logger.info(f"Using {strategy.__class__.__name__} for v{strategy.version}")
-
+        logger.info(f"SErvice engg and empid: {state.service_engineer.replace(" ","")} , {state.employee_id}")
         logger.info(f"Creating BootloaderVersionContext with hash={original_hash[:16]}..., phone={state.phone_number}")
         context = BootloaderVersionContext(
             file_hash=original_hash,
             phone_number=state.phone_number or "",
-            employee_code="CZART000",
-            username="TESTUSER"
+            employee_code=state.employee_id,
+            username=state.service_engineer.replace(" ","")
+            # username=state.service_engineer.replace(" ","");
         )
         logger.info(f"PacketContext created successfully")
 

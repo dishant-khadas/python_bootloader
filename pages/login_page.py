@@ -133,13 +133,16 @@ class LoginPage(ttk.Frame):
         from api.auth_api import login_api
         from pages.program_page import ProgramPage
         
-        ok, token_or_error, error_type = login_api(phone, password)
+        # ok, token_or_error, error_type = login_api(phone, password)
+        ok, result, error_type = login_api(phone, password)
+
 
         if not ok:
+            error_msg = result
             if error_type == "network_error":
                 self.controller.after(0, lambda: self.controller.show_error(
                     title="Connection Error",
-                    message=token_or_error,
+                    message=error_msg,
                     return_frame=LoginPage
                 ))
             else:
@@ -152,7 +155,17 @@ class LoginPage(ttk.Frame):
 
         # Save token and phone in AppState singleton
         state = AppState.get_instance()
-        state.set_auth(phone=phone, token=token_or_error)
+        # state.set_auth(phone=phone, token=token_or_error)
+
+        token = result.get("token")
+        employee_data = result.get("data", {})
+        emp_name = employee_data.get("employeeName")
+        emp_id = employee_data.get("employeeId")
+
+        state.set_auth(phone=phone, token=token)
+    
+        state.service_engineer = emp_name
+        state.employee_id = emp_id
         
         self.controller.after(0, lambda: self.controller.show_frame(ProgramPage))
 
