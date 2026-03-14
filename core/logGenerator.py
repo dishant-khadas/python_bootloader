@@ -31,7 +31,8 @@ from utils.path_utils import get_log_path
 from config import config
 
 # Audit logging API endpoint — loaded from centralized config
-API_URL = config.API_URL
+# API_URL = config.API_URL
+API_URL = os.getenv("SERVER_URL")
 
 # Global counter for log serial numbers
 next_serial_number = 1
@@ -79,7 +80,8 @@ def generateLog(errorCode: str, payload: dict) -> None:
     logger.info(f"Payload to Send :  {payload}")
     try:
         res = requests.post(
-            API_URL,
+            # f"{API_URL}/api/logs/data-log",
+            f"{API_URL}api/logs/data-log",
             # json=request_payload,
             json=payload,
             timeout=10
@@ -148,15 +150,28 @@ def write_log(
     minutes = f"{now.minute:02d}"
     seconds = f"{now.second:02d}"
 
+    logger.info("Write log functin called....")
+    print(f"CSV Log Path: {csvfile_path}")
+    print("path Exist : ",{os.path.exists(csvfile_path)})
+
     # Read last serial number from existing CSV
     try:
         if os.path.exists(csvfile_path):
             with open(csvfile_path, "r") as f:
                 rows = list(csv.reader(f))
                 if rows:
-                    next_serial_number = int(rows[-1][0]) + 1
+                    last_row = rows[-1][0]
+
+                    if last_row.isdigit():
+                        next_serial_number = int(last_row) + 1
+                    else:
+                        next_serial_number = 1
                 else:
                     next_serial_number = 1
+                # if rows:
+                #     next_serial_number = int(rows[-1][0]) + 1
+                # else:
+                #     next_serial_number = 1
     except Exception as e:
         logger.info(f"E41 - Log File not Found: {e}")
         return
