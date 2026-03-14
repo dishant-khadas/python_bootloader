@@ -85,6 +85,8 @@ class AppState:
         # Authentication
         self._phone_number: Optional[str] = None
         self._jwt_token: Optional[str] = None
+        self._service_engineer: Optional[str] = None
+        self._employee_id: Optional[str] = None
         
         # DU/Display Information (from 512-byte handshake)
         self._du_number: Optional[str] = None
@@ -144,6 +146,8 @@ class AppState:
             self._selected_file_id = None
             self._selected_file_name = None
             self._du_options = None
+            self._service_engineer = None
+            self._employee_id = None
     
     # ========== Authentication Methods ==========
     
@@ -265,6 +269,30 @@ class AppState:
         """Get DU serial number."""
         with self._lock:
             return self._du_number
+
+    @property
+    def service_engineer(self) -> Optional[str]:
+        """Get service engineer name."""
+        with self._lock:
+            return self._service_engineer
+
+    @service_engineer.setter
+    def service_engineer(self, value: Optional[str]):
+        """Set service engineer name."""
+        with self._lock:
+            self._service_engineer = value
+    
+    @property
+    def employee_id(self) -> Optional[str]:
+        """Get employee ID."""
+        with self._lock:
+            return self._employee_id
+
+    @employee_id.setter
+    def employee_id(self, value: Optional[str]):
+        """Set employee ID."""
+        with self._lock:
+            self._employee_id = value
     
     @property
     def display_number(self) -> Optional[str]:
