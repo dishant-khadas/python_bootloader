@@ -322,7 +322,6 @@ def _prepare_packet(
             phone_number=state.phone_number or "",
             employee_code=state.employee_id,
             username=state.service_engineer.replace(" ","")
-            # username=state.service_engineer.replace(" ","");
         )
         logger.info(f"PacketContext created successfully")
 
