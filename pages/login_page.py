@@ -11,6 +11,7 @@ from ttkbootstrap.constants import SUCCESS, SECONDARY, INFO
 
 from utils.t9_keypad import T9Keypad
 from core.app_state import AppState
+from utils.logger import logger
 
 
 class LoginPage(ttk.Frame):
@@ -109,10 +110,10 @@ class LoginPage(ttk.Frame):
         
         phone = self.phone.get().strip()
         if not phone.startswith("+"):
-            phone = "+91" + phone
+            phone = "+91" + "-" + phone
 
         password = self.password.get().strip()
-
+        logger.info(f"Attempting login with phone: {phone}")
         if not phone or not password:
             self.controller.show_error(
                 title="Invalid Input",
