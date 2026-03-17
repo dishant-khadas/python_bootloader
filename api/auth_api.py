@@ -23,7 +23,7 @@ from core.logGenerator import write_log
 from utils.logger import logger
 
 # Authentication API endpoint
-API_URL = "https://bootloader.czarmetricsystem.com/api/auth/serviceEngineer/phonelogin"
+API_URL = f"{os.getenv('SERVER_URL')}api/auth/serviceEngineer/phonelogin"
 
 
 def login_api(phone: str, password: str) -> tuple[bool, str, str]:

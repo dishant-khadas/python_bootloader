@@ -78,12 +78,12 @@ def generateLog(errorCode: str, payload: dict) -> None:
     # }
 
     logger.info(f"Payload to Send :  {payload}")
+    logger.info(f"API URL :  {API_URL}")
     try:
         res = requests.post(
-            # f"{API_URL}/api/logs/data-log",
             f"{API_URL}api/logs/data-log",
-            # json=request_payload,
             json=payload,
+            headers={"Content-Type": "application/json"},
             timeout=10
         )
 
