@@ -20,6 +20,7 @@ from datetime import datetime
 from typing import Optional
 from utils.logger import logger
 from utils.path_utils import get_log_path
+from core.models import DisplaySession, NozzleLog
 
 
 def write_display_log(hex_data: str) -> None:
@@ -127,3 +128,39 @@ def write_display_log(hex_data: str) -> None:
         
     except Exception as e:
         logger.info(f"Error writing display log: {e}")
+
+    # ── Write to SQLite3 Display_Session + Nozzle_Log tables ─────────────────
+    # Only reached on successful handshake — never called on login/handshake failures
+    try:
+        session = DisplaySession.create(
+            SrNO          = serial_no,
+            Date          = date_str,
+            Time          = time_str,
+            duNumber      = str(du_number),
+            displayNumber = str(display_number),
+            displayShaSign= display_sha_sign,
+            firmware      = float(firmware_version),
+            autoMode      = auto_mode,
+            onoff         = onoff,
+        )
+        # Write 4 NozzleLog rows — one per nozzle
+        for idx, nozzle in enumerate(nozzle_data, 1):
+            timestamp = (
+                f"{nozzle['date']}/{nozzle['month']}/{nozzle['year']}"
+                f"-{nozzle['hr']}:{nozzle['min']}:{nozzle['sec']}"
+            )
+            NozzleLog.create(
+                session       = session,
+                nozzle_number = idx,
+                nozzle_ID     = nozzle["ID"],
+                Amount        = float(nozzle["amount"]),
+                Volume        = float(nozzle["volume"]),
+                KFactor       = nozzle["kfactor"],
+                Timestamp     = timestamp,
+                TXN           = nozzle["txn"],
+                FW            = float(nozzle["fw"]),
+                SHA           = nozzle["sha"],
+            )
+        logger.info(f"Display_Session + 4 NozzleLog rows written: Serial {serial_no}")
+    except Exception as e:
+        logger.error(f"DB write failed (Display_Session/Nozzle_Log): {e}")

@@ -50,6 +50,10 @@ from pages import (
 
 load_dotenv()
 
+# Initialise SQLite3 database — creates tables if they don't exist
+from core.models import init_db
+init_db()
+
 
 class App(ttk.Window):
     """

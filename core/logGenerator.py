@@ -29,6 +29,7 @@ import requests
 from utils.logger import logger
 from utils.path_utils import get_log_path
 from config import config
+from core.models import ProgrammingLog
 
 # Audit logging API endpoint — loaded from centralized config
 # API_URL = config.API_URL
@@ -223,3 +224,25 @@ def write_log(
         logger.info(f"E43 - Error writing Log: {e}")
         generateLog(errorCode, log_payload)
         return
+
+    # ── Write to SQLite3 Programming_Log table ───────────────────────────────
+    # Handles all scenarios — empty duNumber/displayNumber on auth/handshake failures
+    try:
+        ProgrammingLog.create(
+            SrNO          = next_serial_number,
+            Log_ID        = logID,
+            errorCode     = errorCode,
+            phoneNo       = phoneNo or "",
+            IP_Address    = ip,
+            Date          = dateString,
+            Time          = timeString,
+            duNumber      = str(duNumber) if duNumber else "",
+            displayNumber = str(displayNumber) if displayNumber else "",
+            fileName      = fileName or "",
+            result        = result,
+            description   = description,
+            data_sent     = data_sent,
+        )
+        logger.info(f"Programming_Log DB row written: Serial {next_serial_number}")
+    except Exception as e:
+        logger.error(f"DB write failed (Programming_Log): {e}")
