@@ -38,8 +38,6 @@ from peewee import (
     DateTimeField,
 )
 
-# ── DB path ────────────────────────────────────────────────────────────────────
-# Resolve to <project_root>/data/bootloader.db regardless of how the app is run
 _HERE = Path(__file__).resolve().parent          # core/
 _PROJECT_ROOT = _HERE.parent                     # python_bootloader/
 _DB_PATH = _PROJECT_ROOT / "data" / "bootloader.db"
@@ -53,24 +51,11 @@ db = SqliteDatabase(
     },
 )
 
-
-# ── Base model ─────────────────────────────────────────────────────────────────
-
 class BaseModel(Model):
     class Meta:
         database = db
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Table 1 — Programming_Log
-# Source: core/logGenerator.py → write_log()
-# Scenarios covered:
-#   ✅ Firmware updated successfully     → result='Success', all fields populated
-#   ❌ Login failed                      → result='Fail',  duNumber='' displayNumber=''
-#   ❌ No data received during handshake → result='Fail',  duNumber='' displayNumber=''
-#   ⚠️  Download failed                  → result='Fail',  duNumber/displayNumber set
-#   ⚠️  Flash failed (exit code 255)     → result='Fail',  duNumber/displayNumber set
-# ══════════════════════════════════════════════════════════════════════════════
 
 class ProgrammingLog(BaseModel):
     """One row per firmware update attempt (success or failure)."""
@@ -94,15 +79,6 @@ class ProgrammingLog(BaseModel):
     class Meta:
         table_name = "Programming_Log"
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Table 2 — Display_Session
-# Source: core/display_logger.py → write_display_log()
-# Written ONLY on successful handshake. Will NOT exist for:
-#   ❌ Login failures
-#   ❌ Handshake timeouts / no data received
-# ══════════════════════════════════════════════════════════════════════════════
-
 class DisplaySession(BaseModel):
     """
     One row per successful 512-byte handshake.
@@ -123,14 +99,6 @@ class DisplaySession(BaseModel):
 
     class Meta:
         table_name = "Display_Session"
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Table 3 — Nozzle_Log
-# Source: core/display_logger.py → write_display_log()
-# Always 4 rows per DisplaySession (one per nozzle).
-# Hard FK → DisplaySession (CASCADE delete: remove session = remove its nozzles)
-# ══════════════════════════════════════════════════════════════════════════════
 
 class NozzleLog(BaseModel):
     """
