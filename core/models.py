@@ -44,8 +44,6 @@ _DB_PATH = Path(get_log_path("bootloader.db"))
 db = SqliteDatabase(
     str(_DB_PATH),
     pragmas={
-        "journal_mode": "wal",        # Write-Ahead Logging — safe for concurrent reads
-        "cache_size": -1024 * 32,     # 32 MB page cache
         "foreign_keys": 1,            # enforce FK constraints within NozzleLog
     },
 )
