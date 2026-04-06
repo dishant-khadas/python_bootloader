@@ -3,28 +3,25 @@ core/models.py
 --------------
 Peewee ORM model definitions for the SQLite3 database.
 
+DB location: ~/.czar-bootloader/bootloader.db  (persistent across reboots and rebuilds)
+
 Tables
 ------
-    ProgrammingLog  → mirrors logs.csv          (1 row per firmware update attempt)
     DisplaySession  → mirrors Display_log.csv   (1 row per successful handshake)
+    ProgrammingLog  → mirrors logs.csv          (1 row per firmware update attempt)
     NozzleLog       → nozzle sub-records        (4 rows per DisplaySession)
 
-Soft-link between ProgrammingLog and DisplaySession:
-    JOIN ON ProgrammingLog.duNumber = DisplaySession.duNumber
-       AND ProgrammingLog.displayNumber = DisplaySession.displayNumber
-    No hard FK — ProgrammingLog rows may have empty duNumber/displayNumber
-    (handshake failures, login failures) with no matching DisplaySession.
+ProgrammingLog.display_session is a nullable FK:
+    → Set when a handshake succeeded before the update (S-01, E-21, E-15 …)
+    → NULL for auth/handshake failures (E-51, E-31, E-42 …)
 
 Usage
 -----
     from core.models import init_db, ProgrammingLog, DisplaySession, NozzleLog
-
     init_db()  # call once at app startup
 """
 
 import datetime
-import sys
-import os
 from pathlib import Path
 
 from peewee import (
@@ -37,10 +34,12 @@ from peewee import (
     ForeignKeyField,
     DateTimeField,
 )
+from utils.path_utils import get_log_path
 
-_HERE = Path(__file__).resolve().parent          # core/
-_PROJECT_ROOT = _HERE.parent                     # python_bootloader/
-_DB_PATH = _PROJECT_ROOT / "data" / "bootloader.db"
+# ── DB path ────────────────────────────────────────────────────────────────────
+# Use the same persistent user directory as the CSV logs (~/.czar-bootloader/)
+# This survives PyInstaller rebuilds and app restarts.
+_DB_PATH = Path(get_log_path("bootloader.db"))
 
 db = SqliteDatabase(
     str(_DB_PATH),
