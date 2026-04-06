@@ -21,6 +21,7 @@ from typing import Optional
 from utils.logger import logger
 from utils.path_utils import get_log_path
 from core.models import DisplaySession, NozzleLog
+from core.app_state import AppState
 
 
 def write_display_log(hex_data: str) -> None:
@@ -143,6 +144,11 @@ def write_display_log(hex_data: str) -> None:
             autoMode      = auto_mode,
             onoff         = onoff,
         )
+        # Store session ID and creation timestamp in AppState
+        # ProgrammingLog will reuse the exact same timestamp for consistency
+        state = AppState.get_instance()
+        state.current_display_session_id = session.id
+        state.current_display_session_timestamp = session.created_at
         # Write 4 NozzleLog rows — one per nozzle
         for idx, nozzle in enumerate(nozzle_data, 1):
             timestamp = (

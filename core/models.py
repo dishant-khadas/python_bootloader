@@ -57,33 +57,8 @@ class BaseModel(Model):
 
 
 
-class ProgrammingLog(BaseModel):
-    """One row per firmware update attempt (success or failure)."""
-
-    id            = AutoField()
-    SrNO          = IntegerField()
-    Log_ID        = CharField()                       # e.g. 41999990_260213141012_1
-    errorCode     = CharField(default="")             # e.g. 'E-51', 'E-31', 'S-01'
-    phoneNo       = CharField(default="")             # empty on login failure
-    IP_Address    = CharField(default="")
-    Date          = CharField()                       # DD-MM-YYYY
-    Time          = CharField()                       # HH:MM:SS
-    duNumber      = CharField(default="")             # empty if handshake never succeeded
-    displayNumber = CharField(default="")             # empty if handshake never succeeded
-    fileName      = CharField(default="")             # empty on handshake / auth failures
-    result        = CharField()                       # 'Success' | 'Fail' | 'Failed'
-    description   = CharField(default="")
-    data_sent     = IntegerField(default=0)           # 0 = not synced to server yet
-    created_at    = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        table_name = "Programming_Log"
-
 class DisplaySession(BaseModel):
-    """
-    One row per successful 512-byte handshake.
-    Soft-linked to ProgrammingLog via duNumber + displayNumber.
-    """
+    """One row per successful 512-byte handshake."""
 
     id             = AutoField()
     SrNO           = IntegerField()
@@ -99,6 +74,40 @@ class DisplaySession(BaseModel):
 
     class Meta:
         table_name = "Display_Session"
+
+
+class ProgrammingLog(BaseModel):
+    """
+    One row per firmware update attempt (success or failure).
+    display_session is NULL when no handshake happened (login fail, timeout).
+    """
+
+    id              = AutoField()
+    SrNO            = IntegerField()
+    Log_ID          = CharField()                     # e.g. 41999990_260213141012_1
+    errorCode       = CharField(default="")           # e.g. 'E-51', 'E-31', 'S-01'
+    display_session = ForeignKeyField(
+                          DisplaySession,
+                          null=True,
+                          default=None,
+                          backref="programming_logs",
+                          on_delete="SET NULL",
+                      )                               # NULL → no handshake for this attempt
+    phoneNo       = CharField(default="")             # empty on login failure
+    IP_Address    = CharField(default="")
+    Date          = CharField()                       # DD-MM-YYYY
+    Time          = CharField()                       # HH:MM:SS
+    duNumber      = CharField(default="")             # empty if handshake never succeeded
+    displayNumber = CharField(default="")             # empty if handshake never succeeded
+    fileName      = CharField(default="")             # empty on handshake / auth failures
+    result        = CharField()                       # 'Success' | 'Fail' | 'Failed'
+    description   = CharField(default="")
+    data_sent     = IntegerField(default=0)           # 0 = not synced to server yet
+    created_at    = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = "Programming_Log"
+
 
 class NozzleLog(BaseModel):
     """
