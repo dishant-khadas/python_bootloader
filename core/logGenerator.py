@@ -29,6 +29,8 @@ import requests
 from utils.logger import logger
 from utils.path_utils import get_log_path
 from config import config
+from core.models import ProgrammingLog
+from core.app_state import AppState
 
 # Audit logging API endpoint — loaded from centralized config
 # API_URL = config.API_URL
@@ -223,3 +225,33 @@ def write_log(
         logger.info(f"E43 - Error writing Log: {e}")
         generateLog(errorCode, log_payload)
         return
+
+    # ── Write to SQLite3 Programming_Log table ───────────────────────────────
+    # Handles all scenarios — empty duNumber/displayNumber on auth/handshake failures
+    try:
+        state = AppState.get_instance()
+        # Reuse the DisplaySession timestamp so both records share the exact same time.
+        # Falls back to now() for auth failures / handshake timeouts (no session exists).
+        import datetime as _dt
+        log_created_at = state.current_display_session_timestamp or _dt.datetime.now()
+
+        ProgrammingLog.create(
+            SrNO            = next_serial_number,
+            Log_ID          = logID,
+            errorCode       = errorCode,
+            display_session = state.current_display_session_id,
+            phoneNo         = phoneNo or "",
+            IP_Address      = ip,
+            Date            = dateString,
+            Time            = timeString,
+            duNumber        = str(duNumber) if duNumber else "",
+            displayNumber   = str(displayNumber) if displayNumber else "",
+            fileName        = fileName or "",
+            result          = result,
+            description     = description,
+            data_sent       = data_sent,
+            created_at      = log_created_at,
+        )
+        logger.info(f"Programming_Log DB row written: Serial {next_serial_number}")
+    except Exception as e:
+        logger.error(f"DB write failed (Programming_Log): {e}")

@@ -108,6 +108,11 @@ class AppState:
         self._selected_file_id: Optional[str] = None
         self._selected_file_name: Optional[str] = None
         self._du_options: Optional[dict] = None
+
+        # DB link: ID of the active DisplaySession row (set after successful handshake)
+        self._current_display_session_id: Optional[int] = None
+        # Timestamp of the active DisplaySession (shared with ProgrammingLog for consistency)
+        self._current_display_session_timestamp: Optional[datetime.datetime] = None
     
     @classmethod
     def get_instance(cls) -> 'AppState':
@@ -148,6 +153,8 @@ class AppState:
             self._du_options = None
             self._service_engineer = None
             self._employee_id = None
+            self._current_display_session_id = None
+            self._current_display_session_timestamp = None
     
     # ========== Authentication Methods ==========
     
@@ -464,3 +471,29 @@ class AppState:
         """String representation for debugging."""
         summary = self.get_state_summary()
         return f"AppState({summary})"
+
+    # ========== DB Session Link ==========
+
+    @property
+    def current_display_session_id(self) -> Optional[int]:
+        """ID of the active DisplaySession row. None if no handshake has succeeded yet."""
+        with self._lock:
+            return self._current_display_session_id
+
+    @current_display_session_id.setter
+    def current_display_session_id(self, value: Optional[int]):
+        """Set after DisplaySession.create() to link ProgrammingLog rows to this session."""
+        with self._lock:
+            self._current_display_session_id = value
+
+    @property
+    def current_display_session_timestamp(self):
+        """Timestamp of the active DisplaySession. Shared with ProgrammingLog for consistency."""
+        with self._lock:
+            return self._current_display_session_timestamp
+
+    @current_display_session_timestamp.setter
+    def current_display_session_timestamp(self, value):
+        """Set to the exact datetime when DisplaySession was created."""
+        with self._lock:
+            self._current_display_session_timestamp = value
