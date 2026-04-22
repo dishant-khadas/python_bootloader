@@ -65,11 +65,22 @@ Reboot for this to take effect:
 sudo reboot
 ```
 
+### Step 5: Initialize SQLite Database (Optional)
+
+The application uses an SQLite database to store Display Logs. You can initialize it and optionally import existing CSV data by running:
+
+```bash
+cd ~/app/python_bootloader
+source venv/bin/activate
+python utils/db_manager.py
+```
+This will create `data/bootloader.db` and import `Logs/Display_log.csv`.
+
 ---
 
 ## Building the Executable
 
-### Step 5: Build with PyInstaller
+### Step 6: Build with PyInstaller
 
 ```bash
 cd ~/app/python_bootloader
@@ -79,7 +90,7 @@ pyinstaller bootloader.spec --clean --noconfirm
 
 Build output will be in `dist/czar_bootloader/`. This takes several minutes on the Pi.
 
-### Step 6: Test Before Installing
+### Step 7: Test Before Installing
 
 ```bash
 ./dist/czar_bootloader/czar_bootloader
@@ -91,7 +102,7 @@ The application window should open. Close it once verified.
 
 ## Installing as Desktop Application
 
-### Step 7: Run the Install Script
+### Step 8: Run the Install Script
 
 ```bash
 chmod +x scripts/install.sh
@@ -107,7 +118,7 @@ sudo ./scripts/install.sh
 | Installs app icon | `/usr/share/pixmaps/czar-bootloader.png` |
 | Creates menu entry | `/usr/share/applications/czar-bootloader.desktop` |
 
-### Step 8: Add Desktop Shortcut (Optional)
+### Step 9: Add Desktop Shortcut (Optional)
 
 ```bash
 cp /usr/share/applications/czar-bootloader.desktop ~/Desktop/
@@ -116,13 +127,13 @@ chmod +x ~/Desktop/czar-bootloader.desktop
 
 If the icon shows as untrusted, right-click it → **"Allow Launching"**.
 
-### Step 9: Launch the App
+### Step 10: Launch the App
 
 Two ways:
 1. **Application Menu** → Utilities/Development → **CZAR Bootloader**
 2. **Terminal**: `czar-bootloader`
 
-### Step 10: Delete the Repository (Optional)
+### Step 11: Delete the Repository (Optional)
 
 Once everything works, you can delete the source code:
 
