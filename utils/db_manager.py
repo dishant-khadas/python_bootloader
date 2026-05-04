@@ -26,13 +26,13 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from utils.path_utils import get_app_data_dir
+
 logger = logging.getLogger(__name__)
 
 # ── Path resolution ────────────────────────────────────────────────────────────
-# Resolve to <project_root>/data/bootloader.db regardless of CWD
-_HERE = Path(__file__).resolve().parent          # utils/
-_PROJECT_ROOT = _HERE.parent                     # python_bootloader/
-_DEFAULT_DB_PATH = _PROJECT_ROOT / "data" / "bootloader.db"
+# Resolve to ~/.czar-bootloader/bootloader.db for persistence and proper permissions
+_DEFAULT_DB_PATH = Path(get_app_data_dir()) / "bootloader.db"
 
 # SQL to create the table (mirrors scripts/create_display_log_table.sql)
 _CREATE_TABLE_SQL = """
@@ -321,7 +321,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         csv_file = sys.argv[1]
     else:
-        csv_file = str(_PROJECT_ROOT / "Logs" / "Display_log.csv")
+        project_root = Path(__file__).resolve().parent.parent
+        csv_file = str(project_root / "Logs" / "Display_log.csv")
 
     inserted = db.import_csv(csv_file)
     print(f"Rows inserted: {inserted}")
