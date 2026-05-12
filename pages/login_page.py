@@ -106,6 +106,12 @@ class LoginPage(ttk.Frame):
 
     def start_login(self):
         """Start the login process."""
+        # Prevent multiple simultaneous login attempts
+        if hasattr(self, "_logging_in") and self._logging_in:
+            return
+        self._logging_in = True
+        self.signin_btn.config(state="disabled")
+
         from pages.wifi_connecting_page import WifiConnectingPage
         
         phone = self.phone.get().strip()
@@ -137,6 +143,10 @@ class LoginPage(ttk.Frame):
         # ok, token_or_error, error_type = login_api(phone, password)
         ok, result, error_type = login_api(phone, password)
 
+
+        # Reset login state
+        self._logging_in = False
+        self.controller.after(0, lambda: self.signin_btn.config(state="normal"))
 
         if not ok:
             error_msg = result

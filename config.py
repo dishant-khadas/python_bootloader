@@ -26,7 +26,7 @@ class Config:
     """Application configuration loaded from environment variables with sensible defaults."""
     
     # Server Configuration
-    SERVER_URL = os.getenv("SERVER_URL")
+    SERVER_URL = os.getenv("SERVER_URL", "https://bootloader.czarmetricsystem.com/")
     API_URL = f"{SERVER_URL}api/logs/data-log"
     
     # Device Configuration
