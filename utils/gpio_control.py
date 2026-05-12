@@ -3,149 +3,92 @@ GPIO Control Module for Python Bootloader Application.
 
 This module provides functions to control GPIO pins on the hardware device,
 specifically for bootloader detection (BL_DETECT) and display power control.
-It uses the Linux gpioset utility to manipulate GPIO pins.
+It uses gpiozero for modern hardware support (Raspberry Pi 5 compatible).
 
 Hardware Pins (configurable via environment variables):
     - BL_DETECT_PIN: Bootloader detection signal pin (default: GPIO 17)
     - DISPLAY_ON_PIN: Display power control pin (default: GPIO 4)
 
 Platform Support:
-    - Linux: Uses gpioset command for actual GPIO control
-    - Windows: Mock mode for development/testing (prints commands without executing)
-
-Functions:
-    turn_BL_Detect_High(): Set bootloader detect pin HIGH
-    turn_BL_Detect_Low(): Set bootloader detect pin LOW
-    turn_display_On(): Turn on the display
-    turn_display_Off(): Turn off the display
-    safe_cleanup(): Safely turn off all controlled pins
-    safe_bl_low(): Safely turn off bootloader detect pin only
+    - Linux: Uses gpiozero with lgpio backend (required for RPi 5)
+    - Windows: Uses gpiozero mock factory for development/testing
 """
 
-import subprocess
 import platform
-import RPi.GPIO as GPIO
-
 from config import config
 from utils.logger import logger
 
-
-# Platform detection for mock mode on Windows
+# Platform detection
 IS_WINDOWS = platform.system() == "Windows"
 
-# GPIO pin configuration from centralized config
-BL_DETECT_PIN = config.BL_DETECT_PIN
-DISPLAY_ON_PIN = config.DISPLAY_ON_PIN
-GPIOCHIP = config.GPIOCHIP
-
-
-## GPIO lib configuration
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(DISPLAY_ON_PIN, GPIO.OUT)
-GPIO.setup(BL_DETECT_PIN, GPIO.OUT)
-
-def run_cmd(cmd: str) -> None:
-    """
-    Execute a shell command safely with error handling.
-    
-    On Windows, this function operates in mock mode and only prints
-    the command that would be executed without actually running it.
-    
-    Args:
-        cmd (str): The shell command to execute.
-        
-    Raises:
-        subprocess.CalledProcessError: If the command fails (caught and logged).
-    """
+# GPIO initialization
+try:
     if IS_WINDOWS:
-        logger.info(f"[MOCK-GPIO] Would execute: {cmd}")
-        return
+        from gpiozero.pins.mock import MockFactory
+        from gpiozero import Device
+        Device.pin_factory = MockFactory()
+        logger.info("[GPIO] Initializing in MOCK mode (Windows)")
+    
+    from gpiozero import DigitalOutputDevice
+    
+    # Initialize pins as DigitalOutputDevices
+    # active_high=True is default, which matches GPIO.HIGH logic
+    bl_detect = DigitalOutputDevice(config.BL_DETECT_PIN)
+    display_on = DigitalOutputDevice(config.DISPLAY_ON_PIN)
+    
+    GPIO_AVAILABLE = True
+    logger.info(f"[GPIO] Pins initialized: BL_DETECT={config.BL_DETECT_PIN}, DISPLAY_ON={config.DISPLAY_ON_PIN}")
 
-    try:
-        logger.info(f"Executing: {cmd}")
-        subprocess.run(cmd, shell=True, check=True)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"GPIO Command Error: {e}")
+except Exception as e:
+    logger.error(f"[GPIO] Initialization failed: {e}")
+    GPIO_AVAILABLE = False
+    # Create dummy objects to prevent NameErrors if initialization fails
+    class DummyPin:
+        def on(self): pass
+        def off(self): pass
+    bl_detect = DummyPin()
+    display_on = DummyPin()
 
 
 def turn_BL_Detect_High() -> None:
-    """
-    Set the bootloader detect GPIO pin to HIGH.
-    
-    This signals to the connected hardware that the bootloader
-    programming mode should be activated.
-    """
-
-
-
-
-## Below line used in  ubuntu 24.0 LTS os
-##    run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_PIN}=1")
-   
-    GPIO.output(BL_DETECT_PIN,GPIO.HIGH)
-    logger.info("BL Pin High")
-    if not IS_WINDOWS:
-       	logger.info(f"GPIO {BL_DETECT_PIN} HIGH")
+    """Set the bootloader detect GPIO pin to HIGH."""
+    try:
+        bl_detect.on()
+        logger.info("BL Pin High")
+    except Exception as e:
+        logger.error(f"Failed to set BL Pin High: {e}")
 
 
 def turn_BL_Detect_Low() -> None:
-    """
-    Set the bootloader detect GPIO pin to LOW.
-    
-    This signals to the connected hardware that the bootloader
-    programming mode should be deactivated.
-    """
-   
-    
-    GPIO.output(BL_DETECT_PIN, GPIO.LOW)
-    logger.info("BL DETECT TURNED LOW!")
-    ##run_cmd(f"gpioset {GPIOCHIP} {BL_DETECT_PIN}=0")
-    if not IS_WINDOWS:
-        logger.info(f"GPIO {BL_DETECT_PIN} LOW")
+    """Set the bootloader detect GPIO pin to LOW."""
+    try:
+        bl_detect.off()
+        logger.info("BL DETECT TURNED LOW!")
+    except Exception as e:
+        logger.error(f"Failed to set BL Pin Low: {e}")
 
 
 def turn_display_On() -> None:
-    """
-    Turn on the external display by setting DISPLAY_ON_PIN to HIGH.
-    
-    This activates power to the connected display unit.
-    """
-
-
-    GPIO.output(DISPLAY_ON_PIN, GPIO.HIGH) 
-    logger.info("DISPLAY TURNED ON!")
-##    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=1")
-    logger.info("DISPLAY ON")
+    """Turn on the external display."""
+    try:
+        display_on.on()
+        logger.info("DISPLAY TURNED ON!")
+    except Exception as e:
+        logger.error(f"Failed to turn display ON: {e}")
 
 
 def turn_display_Off() -> None:
-    """
-    Turn off the external display by setting DISPLAY_ON_PIN to LOW.
-    
-    This cuts power to the connected display unit.
-    """
-    GPIO.output(DISPLAY_ON_PIN, GPIO.LOW) 
-    logger.info("DISPLAY TURNED OFF!")
-##    run_cmd(f"gpioset {GPIOCHIP} {DISPLAY_ON_PIN}=0")
-    logger.info("DISPLAY OFF")
+    """Turn off the external display."""
+    try:
+        display_on.off()
+        logger.info("DISPLAY TURNED OFF!")
+    except Exception as e:
+        logger.error(f"Failed to turn display OFF: {e}")
 
 
 def safe_cleanup() -> None:
-    """
-    Safely turn off all GPIO-controlled hardware.
-    
-    This function turns off both the bootloader detect signal and
-    the display, catching and logging any errors that occur.
-    It's designed to be called during error handling or application
-    shutdown to ensure a clean state.
-    
-    This replaces repetitive try/except blocks throughout the codebase.
-    """
-    try:
-        turn_BL_Detect_Low()
-    except Exception as e:
-        logger.warning(f"Warning: turn_BL_Detect_Low failed: {e}")
-    
+    """Safely turn off all GPIO-controlled hardware."""
+    safe_bl_low()
     try:
         turn_display_Off()
     except Exception as e:
@@ -153,13 +96,7 @@ def safe_cleanup() -> None:
 
 
 def safe_bl_low() -> None:
-    """
-    Safely turn off the bootloader detect signal only.
-    
-    This is a convenience function that wraps turn_BL_Detect_Low()
-    with error handling. Use this when you only need to disable
-    the bootloader detect without affecting the display.
-    """
+    """Safely turn off the bootloader detect signal only."""
     try:
         turn_BL_Detect_Low()
     except Exception as e:

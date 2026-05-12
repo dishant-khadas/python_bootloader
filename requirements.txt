@@ -19,8 +19,9 @@ python-dotenv==1.0.1
 # Serial port communication
 pyserial==3.5
 
-# Raspberry Pi GPIO control
-RPi.GPIO==0.7.1
+# Raspberry Pi GPIO control (using modern libraries for RPi 5 support)
+gpiozero==2.0.1
+lgpio==0.2.2.0
 
 # Build tool for creating standalone executable
 pyinstaller==6.4.0
