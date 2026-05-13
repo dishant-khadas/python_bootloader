@@ -33,69 +33,101 @@ class TestPage(ttk.Frame):
         self.controller = controller
         lm = self.controller.lm
 
+        # Track hardware states
+        self.display_is_on = False
+        self.btl_is_on = False
+
         # Title
-        ttk.Label(self, text="GPIO Hardware Test", font=lm.font(30)).pack(pady=lm.scaled(40))
+        ttk.Label(self, text="GPIO Hardware Test", font=lm.font(24)).pack(pady=lm.scaled(30))
 
-        # Main container for buttons
+        # Main container for buttons - Vertical layout
         btn_container = ttk.Frame(self)
-        btn_container.pack(pady=lm.scaled(20), fill="both", expand=True)
+        btn_container.pack(pady=lm.scaled(10), fill="both", expand=True)
 
-        # Display Controls
-        display_frame = ttk.LabelFrame(btn_container, text="Display Control", padding=lm.scaled(20))
-        display_frame.pack(side="left", padx=lm.scaled(40), fill="both", expand=True)
+        # Display Control Section
+        self.display_btn = ttk.Button(
+            btn_container, 
+            text="Display: OFF", 
+            bootstyle=DANGER,
+            padding=lm.scaled(25),
+            command=self.toggle_display
+        )
+        self.display_btn.pack(pady=lm.scaled(20), padx=lm.scaled(40), fill="x")
 
-        ttk.Button(
-            display_frame, text="Display ON", bootstyle=SUCCESS,
-            padding=lm.scaled(20), command=self.on_display_on
-        ).pack(fill="x", pady=lm.scaled(10))
+        # BTL Detect Control Section
+        self.btl_btn = ttk.Button(
+            btn_container, 
+            text="BTL Detect: OFF", 
+            bootstyle=DANGER,
+            padding=lm.scaled(25),
+            command=self.toggle_btl
+        )
+        self.btl_btn.pack(pady=lm.scaled(20), padx=lm.scaled(40), fill="x")
 
-        ttk.Button(
-            display_frame, text="Display OFF", bootstyle=DANGER,
-            padding=lm.scaled(20), command=self.on_display_off
-        ).pack(fill="x", pady=lm.scaled(10))
-
-        # BTL Detect Controls
-        btl_frame = ttk.LabelFrame(btn_container, text="BTL Detect Control", padding=lm.scaled(20))
-        btl_frame.pack(side="left", padx=lm.scaled(40), fill="both", expand=True)
-
-        ttk.Button(
-            btl_frame, text="BTL Detect ON", bootstyle=SUCCESS,
-            padding=lm.scaled(20), command=self.on_btl_on
-        ).pack(fill="x", pady=lm.scaled(10))
-
-        ttk.Button(
-            btl_frame, text="BTL Detect OFF", bootstyle=DANGER,
-            padding=lm.scaled(20), command=self.on_btl_off
-        ).pack(fill="x", pady=lm.scaled(10))
+        # Status indicator
+        self.status_label = ttk.Label(
+            btn_container, 
+            text="Hardware: IDLE", 
+            font=lm.font(12),
+            foreground="#666666"
+        )
+        self.status_label.pack(pady=lm.scaled(20))
 
         # Navigation Footer
         footer = ttk.Frame(self)
-        footer.pack(side="bottom", fill="x", pady=lm.scaled(40))
+        footer.pack(side="bottom", fill="x", pady=lm.scaled(30))
 
         ttk.Button(
             footer, text="BACK", bootstyle=SECONDARY,
             padding=lm.scaled(15), command=self.go_back
-        ).pack()
+        ).pack(pady=lm.scaled(10))
 
-    def on_display_on(self):
-        logger.info("[TestPage] Manual Display ON")
-        turn_display_On()
+    def toggle_display(self):
+        """Toggle Display power state."""
+        if self.display_is_on:
+            turn_display_Off()
+            self.display_is_on = False
+            self.display_btn.config(text="Display: OFF", bootstyle=DANGER)
+            logger.info("[TestPage] Display toggled -> OFF")
+        else:
+            turn_display_On()
+            self.display_is_on = True
+            self.display_btn.config(text="Display: ON", bootstyle=SUCCESS)
+            logger.info("[TestPage] Display toggled -> ON")
+        self.update_status()
 
-    def on_display_off(self):
-        logger.info("[TestPage] Manual Display OFF")
-        turn_display_Off()
+    def toggle_btl(self):
+        """Toggle BTL Detect state."""
+        if self.btl_is_on:
+            turn_BL_Detect_Low()
+            self.btl_is_on = False
+            self.btl_btn.config(text="BTL Detect: OFF", bootstyle=DANGER)
+            logger.info("[TestPage] BTL Detect toggled -> OFF")
+        else:
+            turn_BL_Detect_High()
+            self.btl_is_on = True
+            self.btl_btn.config(text="BTL Detect: ON", bootstyle=SUCCESS)
+            logger.info("[TestPage] BTL Detect toggled -> ON")
+        self.update_status()
 
-    def on_btl_on(self):
-        logger.info("[TestPage] Manual BTL Detect ON")
-        turn_BL_Detect_High()
-
-    def on_btl_off(self):
-        logger.info("[TestPage] Manual BTL Detect OFF")
-        turn_BL_Detect_Low()
+    def update_status(self):
+        """Update the status label based on hardware states."""
+        if self.display_is_on or self.btl_is_on:
+            self.status_label.config(text="Hardware: ACTIVE", foreground="#ff0000")
+        else:
+            self.status_label.config(text="Hardware: IDLE", foreground="#666666")
 
     def go_back(self):
         """Return to ProgramPage and turn off hardware."""
         logger.info("[TestPage] Returning to Program Page. Cleaning up GPIO.")
         safe_cleanup()
+        
+        # Reset UI states
+        self.display_is_on = False
+        self.btl_is_on = False
+        self.display_btn.config(text="Display: OFF", bootstyle=DANGER)
+        self.btl_btn.config(text="BTL Detect: OFF", bootstyle=DANGER)
+        self.update_status()
+        
         from pages.program_page import ProgramPage
         self.controller.show_frame(ProgramPage)
