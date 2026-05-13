@@ -46,6 +46,7 @@ from pages import (
     DownloadPage,
     FirmwareUpdatePage,
     ErrorPage,
+    TestPage,	
 )
 
 load_dotenv()

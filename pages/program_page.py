@@ -8,7 +8,7 @@ process. Shows "PROGRAM" button to start serial handshake.
 import os
 import threading
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import PRIMARY, WARNING
+from ttkbootstrap.constants import PRIMARY, WARNING, INFO
 
 from utils.gpio_control import safe_cleanup
 from core.du_reader import read_du_from_serial
