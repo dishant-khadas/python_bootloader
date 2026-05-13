@@ -44,7 +44,13 @@ class ProgramPage(ttk.Frame):
         ttk.Button(
             self, text="PROGRAM", bootstyle=PRIMARY,
             padding=lm.scaled(30), command=self.start_program_logic
-        ).pack(pady=lm.scaled(50))
+        ).pack(pady=lm.scaled(20))
+        
+        from pages.test_page import TestPage
+        ttk.Button(
+            self, text="TEST", bootstyle=INFO,
+            padding=lm.scaled(30), command=lambda: self.controller.show_frame(TestPage)
+        ).pack(pady=lm.scaled(20))
 
         self.status_label = ttk.Label(self, text="", font=lm.font(14), bootstyle=WARNING)
         self.status_label.pack(pady=lm.scaled(20))

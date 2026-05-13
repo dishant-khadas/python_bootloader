@@ -148,6 +148,7 @@ class App(ttk.Window):
             DownloadPage,
             FirmwareUpdatePage,
             ErrorPage,
+            TestPage,
         )
         
         for Page in page_classes:
