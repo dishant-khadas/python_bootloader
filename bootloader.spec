@@ -5,7 +5,7 @@ Run with: pyinstaller bootloader.spec
 """
 
 import os
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all
 
 block_cipher = None
 
@@ -61,6 +61,13 @@ hidden_imports += collect_submodules('ttkbootstrap')
 hidden_imports += collect_submodules('boto3')
 hidden_imports += collect_submodules('botocore')
 
+# Collect all files/dependencies for gpiozero and lgpio
+gpiozero_datas, gpiozero_binaries, gpiozero_hiddenimports = collect_all('gpiozero')
+lgpio_datas, lgpio_binaries, lgpio_hiddenimports = collect_all('lgpio')
+
+hidden_imports += gpiozero_hiddenimports + lgpio_hiddenimports
+binaries = gpiozero_binaries + lgpio_binaries
+
 # Data files to include
 datas = [
     ('assets/czar.png', '.'),    # Logo image
@@ -69,11 +76,12 @@ datas = [
 
 # Add ttkbootstrap themes and assets
 datas += collect_data_files('ttkbootstrap')
+datas += gpiozero_datas + lgpio_datas
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],
