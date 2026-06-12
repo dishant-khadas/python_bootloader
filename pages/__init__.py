@@ -21,6 +21,8 @@ from pages.file_selection_page import FileSelectionPage
 from pages.download_page import DownloadPage
 from pages.firmware_update_page import FirmwareUpdatePage
 from pages.error_page import ErrorPage
+from pages.test_page import TestPage
+
 
 __all__ = [
     'SplashScreen',
@@ -35,4 +37,6 @@ __all__ = [
     'DownloadPage',
     'FirmwareUpdatePage',
     'ErrorPage',
+    'TestPage',
 ]
+

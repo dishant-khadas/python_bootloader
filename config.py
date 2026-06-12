@@ -26,7 +26,7 @@ class Config:
     """Application configuration loaded from environment variables with sensible defaults."""
     
     # Server Configuration
-    SERVER_URL = os.getenv("SERVER_URL")
+    SERVER_URL = os.getenv("SERVER_URL", "https://bootloader.czarmetricsystem.com/")
     API_URL = f"{SERVER_URL}api/logs/data-log"
     
     # Device Configuration
@@ -37,8 +37,8 @@ class Config:
     SERIAL_BAUD = int(os.getenv("SERIAL_BAUD", "115200"))
     SERIAL_TIMEOUT = int(os.getenv("SERIAL_TIMEOUT", "15"))
     
-    # GPIO Configuration
-    GPIOCHIP = os.getenv("GPIOCHIP", "gpiochip0")
+    # GPIO Configuration (RPi 5 uses gpiochip4 for 40-pin header)
+    GPIOCHIP = os.getenv("GPIOCHIP", "gpiochip4")
     BL_DETECT_PIN = int(os.getenv("BL_DETECT_PIN", "17"))
     DISPLAY_ON_PIN = int(os.getenv("DISPLAY_ON_PIN", "4"))
     
