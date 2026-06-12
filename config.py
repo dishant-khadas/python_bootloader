@@ -9,13 +9,20 @@ from dotenv import load_dotenv
 
 # Load .env from the correct location (handle PyInstaller bundle)
 if getattr(sys, 'frozen', False):
-    # Running as PyInstaller bundle - .env is in _MEIPASS
-    base_path = sys._MEIPASS
+    # Running as PyInstaller bundle
+    # First, look for an external .env in the same directory as the executable
+    exe_dir = os.path.dirname(sys.executable)
+    external_env = os.path.join(exe_dir, '.env')
+    if os.path.exists(external_env):
+        env_path = external_env
+    else:
+        # Fall back to the bundled .env
+        env_path = os.path.join(sys._MEIPASS, '.env')
 else:
     # Running as normal Python script
     base_path = os.path.dirname(os.path.abspath(__file__))
+    env_path = os.path.join(base_path, '.env')
 
-env_path = os.path.join(base_path, '.env')
 load_dotenv(env_path)
 
 # Import path utility for user-writable log directory

@@ -160,7 +160,7 @@ git pull origin main
 source venv/bin/activate
 
 # 4. Install any new dependencies (if requirements.txt changed)
-pip install -r requirements.txt
+pip install -r requirements.txtcd t
 
 # 5. Rebuild the executable
 pyinstaller bootloader.spec --clean --noconfirm

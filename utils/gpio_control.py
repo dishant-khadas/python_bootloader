@@ -25,11 +25,11 @@ try:
     else:
         # Force lgpio factory for RPi 5 support if available
         try:
-            from gpiozero.pins.lgpio import LPiFactory
-            Device.pin_factory = LPiFactory()
-            logger.info("[GPIO] Using LPiFactory (RPi 5 compatible)")
+            from gpiozero.pins.lgpio import LGPIOFactory
+            Device.pin_factory = LGPIOFactory()
+            logger.info("[GPIO] Using LGPIOFactory (RPi 5 compatible)")
         except ImportError:
-            logger.warning("[GPIO] LPiFactory not found, falling back to default factory")
+            logger.warning("[GPIO] LGPIOFactory not found, falling back to default factory")
 
     # Initialize pins
     bl_detect = DigitalOutputDevice(config.BL_DETECT_PIN)
