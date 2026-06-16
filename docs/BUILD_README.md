@@ -12,10 +12,31 @@ Complete guide to build the standalone executable, deploy it as a desktop applic
 
 ---
 
-## First-Time Setup
+## First-Time Setup (Recommended)
+
+You can set up the entire application, virtual environment, system dependencies, permissions, and build the application with a single command:
+
+```bash
+# 1. Clone the repository and navigate into it
+cd ~
+mkdir -p app && cd app
+git clone <your-repo-url> python_bootloader
+cd python_bootloader
+
+# 2. Make the installer executable and run it (as normal user)
+chmod +x setup.sh
+./setup.sh
+```
+
+The script will prompt for your `sudo` password to install system packages and set permissions. Once complete, it will prompt you to reboot. After rebooting, your installation will be fully ready!
+
+---
+
+## Manual / Step-by-Step Setup (Alternative)
+
+If you prefer to configure the system manually, follow these steps:
 
 ### Step 1: Clone the Repository
-
 ```bash
 cd ~
 mkdir -p app && cd app
@@ -23,8 +44,7 @@ git clone <your-repo-url> python_bootloader
 cd python_bootloader
 ```
 
-### Step 2: Create Virtual Environment & Install Dependencies
-
+### Step 2: Install System Dependencies & Virtual Environment
 On Raspberry Pi, `lgpio` is required for modern GPIO pin control. To avoid build failures, install the system package for `lgpio` and create the virtual environment with access to system site-packages:
 
 ```bash
@@ -40,14 +60,11 @@ pip install -r requirements.txt
 ```
 
 ### Step 3: Configure Environment
-
 Create a `.env` file in the project root with your configuration:
-
 ```bash
 nano .env
 ```
-
-Add your values (this file gets bundled into the executable):
+And add your values (this file gets bundled into the executable):
 
 ```env
 SERVER_URL=https://your-api-server.com/
@@ -60,7 +77,6 @@ LOG_LEVEL=INFO
 ```
 
 ### Step 4: Set Serial/GPIO Permissions
-
 ```bash
 sudo usermod -a -G dialout,gpio $USER
 ```
