@@ -21,7 +21,9 @@ pyserial==3.5
 
 # Raspberry Pi GPIO control (using modern libraries for RPi 5 support)
 gpiozero==2.0.1
-lgpio==0.2.2.0
+
+# Database ORM
+peewee>=3.17.0
 
 # Build tool for creating standalone executable
 pyinstaller==6.4.0

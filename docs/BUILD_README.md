@@ -25,12 +25,18 @@ cd python_bootloader
 
 ### Step 2: Create Virtual Environment & Install Dependencies
 
+On Raspberry Pi, `lgpio` is required for modern GPIO pin control. To avoid build failures, install the system package for `lgpio` and create the virtual environment with access to system site-packages:
+
 ```bash
-python3 -m venv venv
+# 1. Install system-level dependencies for GPIO and Tkinter/PIL support
+sudo apt update
+sudo apt install -y python3-lgpio python3-pil.imagetk python3-tk
+
+# 2. Create Virtual Environment with system package access
+python3 -m venv --system-site-packages venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-pip install pyinstaller
 ```
 
 ### Step 3: Configure Environment
@@ -160,7 +166,7 @@ git pull origin main
 source venv/bin/activate
 
 # 4. Install any new dependencies (if requirements.txt changed)
-pip install -r requirements.txtcd t
+pip install -r requirements.txt
 
 # 5. Rebuild the executable
 pyinstaller bootloader.spec --clean --noconfirm
