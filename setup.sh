@@ -86,18 +86,67 @@ fi
 
 # 7. Configure Environment File (.env)
 echo -e "\n${BLUE}[4/8] Setting up environment configuration (.env)...${NC}"
-if [ ! -f ".env" ]; then
-    if [ -f ".env.example" ]; then
-        cp .env.example .env
-        echo -e "${GREEN}Created .env from .env.example template.${NC}"
-        echo -e "${YELLOW}Warning: Please edit the .env file later to match your server/device settings.${NC}"
+
+# Helper function to prompt user with a default value
+prompt_default() {
+    local prompt_text="$1"
+    local default_val="$2"
+    local var_name="$3"
+    
+    # Read user input
+    read -p "$(echo -e "${CYAN}${prompt_text}${NC} [${YELLOW}${default_val}${NC}]: ")" input_val
+    
+    # If empty, use default
+    if [ -z "$input_val" ]; then
+        eval "$var_name=\"$default_val\""
     else
-        echo -e "${YELLOW}Warning: .env.example not found. Creating empty .env file...${NC}"
-        touch .env
+        eval "$var_name=\"$input_val\""
     fi
-else
-    echo -e "${GREEN}.env configuration file already exists. Skipping setup.${NC}"
-fi
+}
+
+echo -e "Please configure the application parameters (Press Enter to keep the default value):"
+
+prompt_default "Device ID" "41999990" DEVICE_ID
+prompt_default "Server URL" "https://bootloader.czarmetricsystem.com/" SERVER_URL
+prompt_default "Bootloader Detect GPIO Pin (BL_DETECT_PIN)" "17" BL_DETECT_PIN
+prompt_default "Display Power GPIO Pin (DISPLAY_ON_PIN)" "27" DISPLAY_ON_PIN
+prompt_default "AES Key Hex" "603de52c073b6108d72d9810a30914dff4be2b73aef0857d77811f3" AES_KEY_HEX
+prompt_default "AES IV Hex" "2ef451f1de828d2a662a9fc34728d2a66" AES_IV_HEX
+prompt_default "AWS Access Key ID" "AKIIBOYBOFJ5V6XDIBOY" AWS_ACCESS_KEY_ID
+prompt_default "AWS Secret Access Key" "Yde0quTcvidpFxrX0ibB1r2rVVhdfhkjuerh" AWS_SECRET_ACCESS_KEY
+
+# Write user settings to .env
+cat > .env << EOF
+# Environment Configuration
+SERVER_URL=$SERVER_URL
+DEVICE_ID=$DEVICE_ID
+
+# Serial Port Configuration
+SERIAL_PORT=/dev/ttyAMA0
+SERIAL_BAUD=115200
+SERIAL_TIMEOUT=15
+
+# GPIO Configuration
+GPIOCHIP=gpiochip4
+BL_DETECT_PIN=$BL_DETECT_PIN
+DISPLAY_ON_PIN=$DISPLAY_ON_PIN
+
+# Handshake Configuration
+HANDSHAKE_TIMEOUT=10
+
+# Encryption Keys
+AES_KEY_HEX=$AES_KEY_HEX
+AES_IV_HEX=$AES_IV_HEX
+
+# AWS Credentials for Key Retrieval
+AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+# Logging Level
+LOG_LEVEL=INFO
+EOF
+
+echo -e "${GREEN}.env configuration file created and updated successfully!${NC}"
 
 # 8. Setup Python Virtual Environment and dependencies
 echo -e "\n${BLUE}[5/8] Creating virtual environment...${NC}"
