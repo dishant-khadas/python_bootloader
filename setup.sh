@@ -41,12 +41,51 @@ sudo apt update
 sudo apt install -y python3-lgpio python3-pil.imagetk python3-tk
 
 # 5. Configure hardware access permissions (requires sudo)
-echo -e "\n${BLUE}[2/7] Configuring serial and GPIO group permissions...${NC}"
+echo -e "\n${BLUE}[2/8] Configuring serial and GPIO group permissions...${NC}"
 sudo usermod -a -G dialout,gpio "$USER"
 echo -e "${GREEN}Added user '$USER' to 'dialout' and 'gpio' groups.${NC}"
 
-# 6. Configure Environment File (.env)
-echo -e "\n${BLUE}[3/7] Setting up environment configuration (.env)...${NC}"
+# 6. Configure hardware serial port and raspi-config settings (requires sudo)
+echo -e "\n${BLUE}[3/8] Configuring serial port and disabling Bluetooth console (requires sudo)...${NC}"
+
+# 6a. Disable Bluetooth to free up /dev/ttyAMA0 on GPIO pins
+BOOT_CONFIG=""
+if [ -f "/boot/firmware/config.txt" ]; then
+    BOOT_CONFIG="/boot/firmware/config.txt"
+elif [ -f "/boot/config.txt" ]; then
+    BOOT_CONFIG="/boot/config.txt"
+fi
+
+if [ -n "$BOOT_CONFIG" ]; then
+    echo -e "Detecting boot configuration at $BOOT_CONFIG..."
+    if ! grep -q "dtoverlay=disable-bt" "$BOOT_CONFIG"; then
+        echo -e "Adding ${YELLOW}dtoverlay=disable-bt${NC} overlay to disable Bluetooth..."
+        echo -e "\n# Disable Bluetooth to use /dev/ttyAMA0 on GPIO pins\ndtoverlay=disable-bt" | sudo tee -a "$BOOT_CONFIG"
+        echo -e "${GREEN}Added dtoverlay=disable-bt configuration.${NC}"
+    else
+        echo -e "${GREEN}dtoverlay=disable-bt is already configured in $BOOT_CONFIG.${NC}"
+    fi
+
+    # Disable bluetooth services
+    echo -e "Disabling Bluetooth services to free the serial port..."
+    sudo systemctl disable hciuart || true
+    sudo systemctl mask bluetooth.service || true
+fi
+
+# 6b. Configure serial console via raspi-config
+if command -v raspi-config &> /dev/null; then
+    echo -e "Configuring Raspberry Pi Serial Port settings via raspi-config..."
+    # Disable login shell over serial (do_serial_cons 1)
+    sudo raspi-config nonint do_serial_cons 1
+    # Enable hardware serial interface (do_serial_hw 0)
+    sudo raspi-config nonint do_serial_hw 0
+    echo -e "${GREEN}raspi-config serial settings updated: Console shell disabled, hardware UART enabled.${NC}"
+else
+    echo -e "${YELLOW}raspi-config utility not found. Skipping Raspberry Pi OS-specific configuration.${NC}"
+fi
+
+# 7. Configure Environment File (.env)
+echo -e "\n${BLUE}[4/8] Setting up environment configuration (.env)...${NC}"
 if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
         cp .env.example .env
@@ -60,33 +99,33 @@ else
     echo -e "${GREEN}.env configuration file already exists. Skipping setup.${NC}"
 fi
 
-# 7. Setup Python Virtual Environment and dependencies
-echo -e "\n${BLUE}[4/7] Creating virtual environment...${NC}"
+# 8. Setup Python Virtual Environment and dependencies
+echo -e "\n${BLUE}[5/8] Creating virtual environment...${NC}"
 if [ -d "venv" ]; then
     echo -e "${YELLOW}Virtual environment 'venv' already exists. Cleaning up...${NC}"
     rm -rf venv
 fi
 python3 -m venv --system-site-packages venv
 
-echo -e "\n${BLUE}[5/7] Installing python requirements inside venv...${NC}"
+echo -e "\n${BLUE}[6/8] Installing python requirements inside venv...${NC}"
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 deactivate
 
-# 8. Build the application executable
-echo -e "\n${BLUE}[6/7] Building standalone executable with PyInstaller...${NC}"
+# 9. Build the application executable
+echo -e "\n${BLUE}[7/8] Building standalone executable with PyInstaller...${NC}"
 source venv/bin/activate
 pyinstaller bootloader.spec --clean --noconfirm
 deactivate
 echo -e "${GREEN}Executable built successfully inside dist/czar_bootloader/${NC}"
 
-# 9. Deploy application to /opt (requires sudo)
-echo -e "\n${BLUE}[7/7] Deploys application to system (/opt)...${NC}"
+# 10. Deploy application to /opt (requires sudo)
+echo -e "\n${BLUE}[8/8] Deploys application to system (/opt)...${NC}"
 chmod +x scripts/install.sh
 sudo ./scripts/install.sh
 
-# 10. Copy Desktop Shortcut (Optional)
+# 11. Copy Desktop Shortcut (Optional)
 if [ -d "$HOME/Desktop" ]; then
     echo -e "\n${BLUE}Adding Desktop Shortcut...${NC}"
     cp /usr/share/applications/czar-bootloader.desktop "$HOME/Desktop/"
@@ -94,12 +133,13 @@ if [ -d "$HOME/Desktop" ]; then
     echo -e "${GREEN}Desktop shortcut created at ~/Desktop/czar-bootloader.desktop${NC}"
 fi
 
-# 11. Final output and reboot prompt
+# 12. Final output and reboot prompt
 echo -e "\n${CYAN}======================================================${NC}"
-echo -e "${GREEN}        Installation Completed Successfully!          ${NC}"
+echo -e "${GREEN}        Installation & Configuration Completed!       ${NC}"
 echo -e "${CYAN}======================================================${NC}"
-echo -e "\n${RED}CRITICAL STEP REQUIRED:${NC}"
-echo -e "You must reboot the device now for serial and GPIO access permissions to apply."
+echo -e "\n${RED}CRITICAL REBOOT REQUIRED:${NC}"
+echo -e "You must reboot the device now for serial, Bluetooth overlays, and GPIO access"
+echo -e "permissions to take effect."
 echo -e "Run the following command to reboot:"
 echo -e "    ${YELLOW}sudo reboot${NC}\n"
 echo -e "${CYAN}======================================================${NC}"
