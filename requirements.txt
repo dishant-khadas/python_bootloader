@@ -1,31 +1,32 @@
 # UI Framework
-ttkbootstrap==1.10.1
+ttkbootstrap>=1.10.1
 
 # Cryptography
-pycryptodome==3.20.0
+pycryptodome>=3.20.0
 
 # AWS SDK for KMS key decryption
-boto3==1.34.51
+boto3>=1.34.51
 
 # HTTP client for API calls
-requests==2.31.0
+requests>=2.31.0
 
 # Image processing
-Pillow==10.2.0
+Pillow>=10.2.0
 
 # Environment variable management
-python-dotenv==1.0.1
+python-dotenv>=1.0.1
 
 # Serial port communication
-pyserial==3.5
+pyserial>=3.5
 
 # Raspberry Pi GPIO control (using modern libraries for RPi 5 support)
-gpiozero==2.0.1
+gpiozero>=2.0.1
 
 # Database ORM
 peewee>=3.17.0
 
 # Build tool for creating standalone executable
-pyinstaller==6.4.0
+pyinstaller>=6.4.0
+
 
 
