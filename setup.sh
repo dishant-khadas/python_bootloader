@@ -36,9 +36,9 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # 4. Install system dependencies (requires sudo)
-echo -e "\n${BLUE}[1/7] Installing system dependencies (requires sudo)...${NC}"
+echo -e "\n${BLUE}[1/8] Installing system dependencies (requires sudo)...${NC}"
 sudo apt update
-sudo apt install -y python3-lgpio python3-pil.imagetk python3-tk
+sudo apt install -y python3-lgpio python3-pil.imagetk python3-tk sqlitebrowser
 
 # 5. Configure hardware access permissions (requires sudo)
 echo -e "\n${BLUE}[2/8] Configuring serial and GPIO group permissions...${NC}"
