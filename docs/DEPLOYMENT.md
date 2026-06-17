@@ -2,23 +2,29 @@
 
 ## Quick Update (After Code Changes)
 
-On your Raspberry Pi, run:
+After pulling the latest changes, run the update script to rebuild the application and deploy it system-wide:
+
 ```bash
 cd /home/czar/app/python_bootloader
 git pull origin main
+./update_build.sh
 ```
 
-That's it! Click the desktop icon to run the latest version.
+This compiles the latest code into the executable and updates the production copy in `/opt/czar-bootloader/`.
 
 ---
 
 ## If New Python Packages Were Added
+
+If the latest code changes introduce new Python packages (e.g. added to `requirements.txt`), the `./update_build.sh` script will automatically handle installing dependencies if needed, but you can also run:
 
 ```bash
 cd /home/czar/app/python_bootloader
 git pull origin main
 source venv/bin/activate
 pip install -r requirements.txt
+deactivate
+./update_build.sh
 ```
 
 ---
