@@ -290,6 +290,7 @@ def _fetch_and_return(
     if not success:
         if "No DU Assigned" in str(options_or_msg):
             callback_ui_error("No DU Assigned")
+            write_log("E-39", "No DU Assigned to Service Engineer", "Fail", "No DU Assigned", config.DEVICE_ID, phoneNo, "", "", "")
         else:
             callback_ui_error(f"DU_Update error: {options_or_msg}")
         turn_display_Off()
