@@ -265,6 +265,7 @@ def _store_handshake_data(
 
 def _fetch_and_return(
     token: str,
+    phoneNo: str,
     du_number: int,
     display_number: int,
     is_encrypted: bool,
@@ -277,6 +278,7 @@ def _fetch_and_return(
 
     Args:
         token: Auth token for API.
+        phoneNo: User phone number for logging.
         du_number: Validated DU serial number.
         display_number: Validated Display serial number.
         is_encrypted: Encryption flag.
@@ -422,7 +424,7 @@ def read_du_from_serial(
 
         # 6. Fetch DU list from API and return
         _fetch_and_return(
-            token, du_number, display_number,
+            token, phoneNo, du_number, display_number,
             result["is_encrypted"], result["encryption_key"],
             callback_ui_success, callback_ui_error,
         )
