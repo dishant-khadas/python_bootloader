@@ -2,116 +2,116 @@
   "L_NETWORK_ERROR": {
     "code": "L-10",
     "name": "Login Network Error",
-    "description": "The device could not connect to the remote server to verify credentials. This may be due to DNS failure, the server being unreachable, or lack of internet connectivity."
+    "description": "Failed to connect to the remote server."
   },
   "L_INVALID_CREDENTIALS": {
     "code": "L-11",
     "name": "Invalid Credentials",
-    "description": "The user provided an incorrect phone number or password resulting in an HTTP 401/403 response."
+    "description": "Incorrect phone number or password."
   },
   "L_API_TIMEOUT": {
     "code": "L-12",
     "name": "Login API Timeout",
-    "description": "The remote server took too long to respond to the login request (exceeded timeout threshold)."
+    "description": "Login request timed out."
   },
   "L_MISSING_AUTH_DATA": {
     "code": "L-13",
     "name": "Missing Authentication Data",
-    "description": "The API returned a success status code, but failed to provide a valid JWT token or Employee data in the response payload."
+    "description": "Missing JWT token or employee data in API response."
   },
   "H_SERIAL_OPEN_ERROR": {
     "code": "H-14",
     "name": "Serial Port Open Error",
-    "description": "The application was unable to open the configured serial port (e.g., /dev/ttyAMA0) to communicate with the display hardware."
+    "description": "Unable to open serial port."
   },
   "H_SERIAL_TIMEOUT": {
     "code": "H-31",
     "name": "Serial Read Timeout",
-    "description": "The serial port was opened successfully, but no data was received from the display during the handshake timeout window."
+    "description": "No data received during handshake."
   },
   "H_NO_DU_ASSIGNED": {
     "code": "H-39",
     "name": "No DU Assigned",
-    "description": "The server reports that there is no Dispenser Unit assigned to the currently logged-in Service Engineer."
+    "description": "No DU assigned to the Service Engineer."
   },
   "H_DU_UPDATE_API_ERROR": {
     "code": "H-40",
     "name": "DU_Update API Error",
-    "description": "Failed to fetch the available firmware update list from the server (due to a network drop or HTTP error)."
+    "description": "Failed to fetch firmware update list."
   },
   "H_INVALID_FRAME_FORMATTING": {
     "code": "H-42",
     "name": "Invalid Frame Formatting",
-    "description": "The 512-byte payload received does not have the expected SOP (Start of Packet) or EOP (End of Packet) markers."
+    "description": "Missing or invalid SOP/EOP markers."
   },
   "H_CRC_VALIDATION_FAILED": {
     "code": "H-43",
     "name": "CRC Validation Failed",
-    "description": "Data corruption occurred in transit. The calculated CRC16 of the payload does not match the received CRC bytes."
+    "description": "CRC mismatch indicating data corruption."
   },
   "H_FRAME_DECRYPTION_FAILED": {
     "code": "H-52",
     "name": "Frame Decryption Failed",
-    "description": "The system failed to decrypt the 512-byte payload, usually indicating an encryption key mismatch or corrupted cipher text."
+    "description": "Failed to decrypt handshake payload."
   },
   "H_INVALID_SERIAL_NUMBER": {
     "code": "H-58",
     "name": "Invalid Serial Number",
-    "description": "The parsed DU Number or Display Number violates system format rules (e.g., wrong length, or DU not starting with 99 / Display not starting with 12)."
+    "description": "DU or Display Number format is invalid."
   },
   "H_INVALID_HARDWARE_TYPE": {
     "code": "H-59",
     "name": "Invalid Hardware Type",
-    "description": "Byte 427 of the handshake payload contains an unrecognized hardware identifier."
+    "description": "Unrecognized hardware identifier."
   },
   "D_NO_FIRMWARE_AVAILABLE": {
     "code": "D-20",
     "name": "No Firmware Available",
-    "description": "The DU API returned an empty list of firmware files for the current hardware."
+    "description": "No firmware updates found for this device."
   },
   "D_DOWNLOAD_API_FAILED": {
     "code": "D-21",
     "name": "Download API Failed",
-    "description": "The system failed to download the .bin firmware file from the server (HTTP non-200 response)."
+    "description": "Failed to download firmware file."
   },
   "D_MISSING_HEADERS": {
     "code": "D-22",
     "name": "Missing Headers",
-    "description": "The server response is missing critical HTTP headers, such as the encrypted Hash or the KMS Encrypted Key header."
+    "description": "Missing Hash or KMS headers in API response."
   },
   "D_ENCRYPTED_HASH_MISMATCH": {
     "code": "D-23",
     "name": "Encrypted Hash Mismatch",
-    "description": "The calculated SHA-256 hash of the downloaded encrypted file does not match the X-Encrypted-File-Hash provided by the server."
+    "description": "Downloaded file hash does not match server hash."
   },
   "D_ORIGINAL_HASH_MISMATCH": {
     "code": "D-24",
     "name": "Original Hash Mismatch",
-    "description": "The calculated SHA-256 hash of the decrypted file does not match the X-Original-File-Hash provided by the server, indicating data corruption or incorrect decryption."
+    "description": "Decrypted file hash does not match server hash."
   },
   "D_KMS_DECRYPTION_ERROR": {
     "code": "D-25",
     "name": "KMS Decryption Error",
-    "description": "AWS Key Management Service (KMS) failed to decrypt the firmware's data key."
+    "description": "AWS KMS failed to decrypt data key."
   },
   "D_AES_DECRYPTION_ERROR": {
     "code": "D-26",
     "name": "AES File Decryption Error",
-    "description": "The system failed to decrypt the firmware file payload using the decrypted KMS data key."
+    "description": "Failed to decrypt firmware file payload."
   },
   "D_SERIAL_WRITE_ERROR": {
     "code": "D-28",
     "name": "Serial Write Error",
-    "description": "The system failed to successfully send the final 64-byte or 512-byte hash packet to the display hardware over the serial port."
+    "description": "Failed to send hash packet over serial."
   },
   "D_HASH_PACKET_TIMEOUT": {
     "code": "D-29",
     "name": "Hash Packet Timeout",
-    "description": "The system sent the Hash Packet successfully, but no response or acknowledgment was received back from the display."
+    "description": "No response received after sending hash packet."
   },
   "P_FIRMWARE_UPDATE_FAILED": {
     "code": "P-15",
     "name": "Firmware Update Failed",
-    "description": "The underlying btl_host.py process exited with a non-zero exit code, threw an internal error, or lost communication with the PIC32 bootloader during the flashing cycle."
+    "description": "Flashing process exited with an error."
   }
 }
