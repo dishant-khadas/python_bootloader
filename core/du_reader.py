@@ -43,6 +43,7 @@ from core.protocol.validators import validate_sop_eop, get_encryption_flag, vali
 from core.protocol.frame_parser import parse_du_and_display
 from core.serial_port import SerialPort, SerialPortOpenError, SerialPortTimeoutError, SerialPortError
 from core.exceptions import DecryptionError, DataValidationError, APIRequestError, BootloaderBaseError
+from core.constants import ErrorCode, get_error_name
 
 from dotenv import load_dotenv
 from utils.logger import logger
@@ -110,8 +111,9 @@ def _validate_frame_data(
             crc_recv = buffer_bytes[510:512]
             callback_ui_message(f"CRC Mismatch: Calc {calculate_little_endian(crc_calc)} vs Recv {crc_recv}")
             safe_cleanup()
-            write_log("E-42", "Invalid Data Received", "Fail", f"CRC Mismatch: Calculated {calculate_little_endian(crc_calc)} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
-            callback_ui_error("E52 - Invalid Data Received")
+            err_code = ErrorCode.H_CRC_VALIDATION_FAILED
+            write_log(err_code, get_error_name(err_code), "Fail", f"CRC Mismatch: Calculated {calculate_little_endian(crc_calc)} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
+            callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
             return None
 
     # Case 2: Encrypted frame (both markers mismatch)
@@ -154,26 +156,30 @@ def _validate_frame_data(
                 else:
                     crc_calc = calculate_crc16(buffer_bytes[:510])
                     crc_recv = buffer_bytes[510:512]
-                    write_log("E-42", "Invalid Data Received", "Fail", f"CRC fail after decrypt: Calculated {calculate_little_endian(crc_calc)} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
-                    callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
+                    err_code = ErrorCode.H_CRC_VALIDATION_FAILED
+                    write_log(err_code, get_error_name(err_code), "Fail", f"CRC fail after decrypt: Calculated {calculate_little_endian(crc_calc)} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
+                    callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
                     raise DataValidationError("CRC fail after decrypt")
             else:
-                write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
-                callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
+                err_code = ErrorCode.H_INVALID_FRAME_FORMATTING
+                write_log(err_code, get_error_name(err_code), "Fail", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
+                callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
                 raise DataValidationError("SOP/EOP fail after decrypt")
 
         except Exception as e:
             safe_cleanup()
-            write_log("E-42", "Invalid Data Received", "Fail", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
-            callback_ui_error(f"E52 - Decrypt failed: {e}")
+            err_code = ErrorCode.H_FRAME_DECRYPTION_FAILED
+            write_log(err_code, get_error_name(err_code), "Fail", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
+            callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
             raise DecryptionError(f"Decrypt failed: {e}")
 
     # Case 3: Partial mismatch (one marker correct, other wrong)
     else:
         callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
         safe_cleanup()
-        write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
-        callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
+        err_code = ErrorCode.H_INVALID_FRAME_FORMATTING
+        write_log(err_code, get_error_name(err_code), "Fail", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
+        callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
         raise DataValidationError(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
 
 
@@ -202,14 +208,16 @@ def _extract_device_numbers(
 
     if not validate_du_number(du_number):
         safe_cleanup()
-        write_log("E-58", "Invalid DU Number Received", "Fail", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), "", "")
-        callback_ui_error(f"E58 - Invalid DU Number Received: {du_number}")
+        err_code = ErrorCode.H_INVALID_SERIAL_NUMBER
+        write_log(err_code, get_error_name(err_code), "Fail", f"Invalid DU Number: {du_number} (must start with 99 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), "", "")
+        callback_ui_error(f"{err_code} - {get_error_name(err_code)}: DU {du_number}")
         return None
 
     if not validate_display_number(display_number):
         safe_cleanup()
-        write_log("E-58", "Invalid Display Number Received", "Fail", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
-        callback_ui_error(f"E58 - Invalid Display Number Received: {display_number}")
+        err_code = ErrorCode.H_INVALID_SERIAL_NUMBER
+        write_log(err_code, get_error_name(err_code), "Fail", f"Invalid Display Number: {display_number} (must start with 12 and be 8 digits)", config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
+        callback_ui_error(f"{err_code} - {get_error_name(err_code)}: Display {display_number}")
         return None
 
     return du_number, display_number
@@ -292,10 +300,13 @@ def _fetch_and_return(
 
     if not success:
         if "No DU Assigned" in str(options_or_msg):
-            callback_ui_error("No DU Assigned")
-            write_log("E-39", "No DU Assigned to Service Engineer", "Fail", "No DU Assigned", config.DEVICE_ID, phoneNo, "", "", "")
+            err_code = ErrorCode.H_NO_DU_ASSIGNED
+            callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
+            write_log(err_code, get_error_name(err_code), "Fail", "No DU Assigned", config.DEVICE_ID, phoneNo, "", "", "")
         else:
-            callback_ui_error(f"DU_Update error: {options_or_msg}")
+            err_code = ErrorCode.H_DU_UPDATE_API_ERROR
+            callback_ui_error(f"{err_code} - {get_error_name(err_code)}: {options_or_msg}")
+            write_log(err_code, get_error_name(err_code), "Fail", str(options_or_msg), config.DEVICE_ID, phoneNo, "", "", "")
         turn_display_Off()
         return
 
@@ -372,20 +383,23 @@ def read_du_from_serial(
             )
             callback_ui_message(f"Data received (len: {len(received_hex)})")
         except SerialPortOpenError as e:
-            callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
+            err_code = ErrorCode.H_SERIAL_OPEN_ERROR
+            callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
             safe_cleanup()
             return
         except SerialPortTimeoutError as e:
             safe_cleanup()
+            err_code = ErrorCode.H_SERIAL_TIMEOUT
             if "No data received" in str(e):
-                callback_ui_error("E31 - No Data Received During Handshake")
-                write_log("E-31", "No Data Received", "Fail", "No Data Received During Handshake", config.DEVICE_ID, phoneNo, "", "", "")
+                callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
+                write_log(err_code, get_error_name(err_code), "Fail", "No Data Received During Handshake", config.DEVICE_ID, phoneNo, "", "", "")
             else:
-                callback_ui_error(f"E31 - Timeout: {e}")
+                callback_ui_error(f"{err_code} - {get_error_name(err_code)}: {e}")
             return
         except SerialPortError as e:
             safe_cleanup()
-            callback_ui_error(f"E14 - Serial Port Error during Handshake: {e}")
+            err_code = ErrorCode.H_SERIAL_OPEN_ERROR
+            callback_ui_error(f"{err_code} - {get_error_name(err_code)}: {e}")
             return
 
         # 3. Validate frame data (SOP/EOP, CRC, decrypt if needed)
@@ -423,8 +437,9 @@ def read_du_from_serial(
                 callback_ui_message(f"Validating Hardware type")
         except ValueError as e:
             safe_cleanup()
-            write_log("E-59", "Invalid Hardware Type", "Fail", str(e), config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
-            callback_ui_error(f"E59 - {e}")
+            err_code = ErrorCode.H_INVALID_HARDWARE_TYPE
+            write_log(err_code, get_error_name(err_code), "Fail", str(e), config.DEVICE_ID, phoneNo, str(du_number), str(display_number), "")
+            callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
             return
 
         # 6. Fetch DU list from API and return

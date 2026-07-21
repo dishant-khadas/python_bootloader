@@ -11,6 +11,9 @@ from ttkbootstrap.constants import SUCCESS, SECONDARY, INFO
 
 from utils.t9_keypad import T9Keypad
 from core.app_state import AppState
+from core.constants import ErrorCode, get_error_name
+from core.logGenerator import write_log
+from config import config
 from utils.logger import logger
 
 
@@ -151,17 +154,33 @@ class LoginPage(ttk.Frame):
         if not ok:
             error_msg = result
             if error_type == "network_error":
-                self.controller.after(0, lambda: self.controller.show_error(
-                    title="Connection Error",
-                    message=error_msg,
-                    return_frame=LoginPage
-                ))
+                err_code = ErrorCode.L_NETWORK_ERROR
+            elif error_type == "timeout":
+                err_code = ErrorCode.L_API_TIMEOUT
+            elif error_type == "missing_data":
+                err_code = ErrorCode.L_MISSING_AUTH_DATA
             else:
-                self.controller.after(0, lambda: self.controller.show_error(
-                    title="Login Failed",
-                    message="Incorrect phone or password.",
-                    return_frame=LoginPage
-                ))
+                err_code = ErrorCode.L_INVALID_CREDENTIALS
+                error_msg = "Incorrect phone or password."
+
+            # Log the login error
+            write_log(
+                errorCode=err_code,
+                errorName=get_error_name(err_code),
+                result="Fail",
+                description=error_msg,
+                device_id=config.DEVICE_ID,
+                phoneNo=phone,
+                duNumber="",
+                displayNumber="",
+                fileName="",
+            )
+
+            self.controller.after(0, lambda: self.controller.show_error(
+                title=f"Login Failed [{err_code}]",
+                message=error_msg,
+                return_frame=LoginPage
+            ))
             return
 
         # Save token and phone in AppState singleton

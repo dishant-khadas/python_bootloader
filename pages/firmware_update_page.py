@@ -16,6 +16,7 @@ from config import config
 from utils.gpio_control import safe_cleanup, turn_display_Off
 from core.logGenerator import write_log
 from core.app_state import AppState
+from core.constants import ErrorCode, get_error_name
 from utils.logger import logger
 from btl_host import run_btl_host
 
@@ -246,10 +247,12 @@ class FirmwareUpdatePage(ttk.Frame):
         self.progress.stop()
         self.status_label.config(text="Update failed", foreground="red")
         
+        err_code = ErrorCode.P_FIRMWARE_UPDATE_FAILED
+        
         # Log error
         write_log(
-            errorCode="E-15",
-            errorName="Firmware Update Failed",
+            errorCode=err_code,
+            errorName=get_error_name(err_code),
             result="Fail",
             description=error_msg,
             device_id=config.DEVICE_ID,
@@ -260,4 +263,4 @@ class FirmwareUpdatePage(ttk.Frame):
         )
         
         safe_cleanup()
-        self.controller.show_error("Firmware Update Failed", error_msg, return_frame=LoginPage)
+        self.controller.show_error(f"Firmware Update Failed [{err_code}]", error_msg, return_frame=LoginPage)

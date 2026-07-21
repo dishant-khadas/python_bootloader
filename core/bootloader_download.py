@@ -46,6 +46,7 @@ from core.protocol.packet_builder import format_hash_to_64_bytes, create_512byte
 from utils.gpio_control import turn_BL_Detect_High, turn_BL_Detect_Low
 from core.logGenerator import write_log
 from core.app_state import AppState
+from core.constants import ErrorCode, get_error_name
 from utils.decrypt_utils import encrypt_hex_block
 from core.serial_port import SerialPort, SerialPortOpenError, SerialPortWriteError
 
@@ -142,9 +143,10 @@ def _download_firmware(
 
     resp = requests.get(download_url, headers=headers, timeout=30)
     if resp.status_code != 200:
+        err_code = ErrorCode.D_DOWNLOAD_API_FAILED
         write_log(
-            errorCode="E-21",
-            errorName="File Download Failed",
+            errorCode=err_code,
+            errorName=get_error_name(err_code),
             result="Fail",
             description=f"Failed to download file from server. Status code: {resp.status_code}",
             device_id=device_id,
@@ -153,7 +155,7 @@ def _download_firmware(
             displayNumber=displayNumber,
             fileName=file_id,
         )
-        callback_error(f"Failed to Download File")
+        callback_error(f"{err_code} - {get_error_name(err_code)}")
         return None
 
     file_bytes = resp.content
@@ -167,7 +169,8 @@ def _download_firmware(
     logger.info(f"encrypted hash:  {encrypted_hash}")
 
     if not original_hash or not encrypted_hash or not encrypted_key_hdr:
-        callback_error("Missing required headers from server")
+        err_code = ErrorCode.D_MISSING_HEADERS
+        callback_error(f"{err_code} - {get_error_name(err_code)}")
         return None
 
     # Validate encrypted file hash
@@ -175,9 +178,10 @@ def _download_firmware(
     calculated_encrypted_hash = sha256_hex_of_bytes(file_bytes)
     logger.info(f"Calculated encrypted hash: {calculated_encrypted_hash}")
     if calculated_encrypted_hash != encrypted_hash:
+        err_code = ErrorCode.D_ENCRYPTED_HASH_MISMATCH
         write_log(
-            errorCode="E-23",
-            errorName="Encrypted File Hash Mismatch",
+            errorCode=err_code,
+            errorName=get_error_name(err_code),
             result="Fail",
             description="Downloaded file hash does not match the expected encrypted hash from server",
             device_id=device_id,
@@ -186,7 +190,7 @@ def _download_firmware(
             displayNumber=displayNumber,
             fileName=file_id,
         )
-        callback_error("E23 - Encrypted File Mismatch")
+        callback_error(f"{err_code} - {get_error_name(err_code)}")
         return None
 
     return {
@@ -237,14 +241,16 @@ def _decrypt_firmware(
         buffer_key_b64 = parsed[0]
         buffer_key_bytes = base64.b64decode(buffer_key_b64)
     except Exception as e:
-        callback_error(f"Failed to parse encrypted key header: {e}")
+        err_code = ErrorCode.D_MISSING_HEADERS
+        callback_error(f"{err_code} - Failed to parse encrypted key header: {e}")
         return None
 
     # Decrypt data key via KMS
     callback_message("Checking file ....")
     decrypted_key = decrypt_key_kms(buffer_key_bytes)
     if not decrypted_key:
-        callback_error("Failed to decrypt data key via KMS")
+        err_code = ErrorCode.D_KMS_DECRYPTION_ERROR
+        callback_error(f"{err_code} - {get_error_name(err_code)}")
         return None
 
     if len(decrypted_key) not in (16, 24, 32):
@@ -254,7 +260,8 @@ def _decrypt_firmware(
     callback_message("Decrypting file with data key (AES-256-ECB)...")
     decrypted_bytes = decrypt_file(file_bytes.hex(), decrypted_key)
     if decrypted_bytes is False:
-        callback_error("Failed to decrypt file content")
+        err_code = ErrorCode.D_AES_DECRYPTION_ERROR
+        callback_error(f"{err_code} - {get_error_name(err_code)}")
         return None
 
     # Verify original hash
@@ -263,9 +270,10 @@ def _decrypt_firmware(
     logger.info(f"Calculated original hash: {calc_orig_hash}")
     logger.info(f"Expected original hash: {original_hash}")
     if calc_orig_hash != original_hash:
+        err_code = ErrorCode.D_ORIGINAL_HASH_MISMATCH
         write_log(
-            errorCode="E-24",
-            errorName="Original File Hash Mismatch",
+            errorCode=err_code,
+            errorName=get_error_name(err_code),
             result="Fail",
             description="Decrypted file hash does not match the expected original hash from server",
             device_id=device_id,
@@ -274,7 +282,7 @@ def _decrypt_firmware(
             displayNumber=displayNumber,
             fileName=file_id,
         )
-        callback_error("E24 - Original file Mismatch")
+        callback_error(f"{err_code} - {get_error_name(err_code)}")
         return None
 
     return {
@@ -415,10 +423,12 @@ def _send_and_trigger(
             SerialPort.write_packet(ser, final_packet)
             callback_message("Final packet written to serial. Port closed.")
     except SerialPortOpenError as e:
-        callback_error("Failed to Send Data to Display")
+        err_code = ErrorCode.D_SERIAL_WRITE_ERROR
+        callback_error(f"{err_code} - {get_error_name(err_code)}: {e}")
         return False
     except SerialPortWriteError as e:
-        callback_error(f"Error during serial write: {e}")
+        err_code = ErrorCode.D_SERIAL_WRITE_ERROR
+        callback_error(f"{err_code} - {get_error_name(err_code)}: {e}")
         return False
 
     callback_message("Preparing firmware update...")
