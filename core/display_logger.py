@@ -13,9 +13,9 @@ Log Fields:
 Functions:
     write_display_log: Write display data to CSV file.
 """
-
 import os
 import csv
+import sqlite3
 from datetime import datetime
 from typing import Optional
 from utils.logger import logger
@@ -84,8 +84,8 @@ def write_display_log(hex_data: str) -> None:
                 lines = [line for line in f if line.strip()]
                 if len(lines) > 1:  # Has header + data
                     serial_no = len(lines)
-        except Exception as e:
-            logger.info(f"Error reading display log: {e}")
+        except OSError as e:
+            logger.error(f"IOError reading display log {csv_path}: {e}")
     header = [
         "SrNO", "Date", "Time", "DuNo", "dispSrNo", "displayShaSign", "firmware", 
         "autoMode", "onoff",
@@ -125,8 +125,8 @@ def write_display_log(hex_data: str) -> None:
         
         logger.info(f"Display log written: Serial {serial_no}")
         
-    except Exception as e:
-        logger.info(f"Error writing display log: {e}")
+    except OSError as e:
+        logger.error(f"IOError writing display log {csv_path}: {e}")
 
     # Write to SQLite Database
     try:
@@ -135,5 +135,7 @@ def write_display_log(hex_data: str) -> None:
         row_dict = dict(zip(header, row))
         db.insert_record(row_dict)
         db.close()
-    except Exception as db_e:
-        logger.info(f"Error writing to display database: {db_e}")
+    except sqlite3.Error as db_e:
+        logger.error(f"SQLite error writing to display database: {db_e}")
+    except Exception as e:
+        logger.error(f"Unexpected error writing to display database: {e}")

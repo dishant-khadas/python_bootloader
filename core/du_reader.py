@@ -42,6 +42,7 @@ from core.protocol.constants import (
 from core.protocol.validators import validate_sop_eop, get_encryption_flag, validate_du_number, validate_display_number, validate_hardware_type
 from core.protocol.frame_parser import parse_du_and_display
 from core.serial_port import SerialPort, SerialPortOpenError, SerialPortTimeoutError, SerialPortError
+from core.exceptions import DecryptionError, DataValidationError, APIRequestError, BootloaderBaseError
 
 from dotenv import load_dotenv
 from utils.logger import logger
@@ -155,17 +156,17 @@ def _validate_frame_data(
                     crc_recv = buffer_bytes[510:512]
                     write_log("E-42", "Invalid Data Received", "Fail", f"CRC fail after decrypt: Calculated {calculate_little_endian(crc_calc)} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
                     callback_ui_error("E52 - Invalid Data Received (CRC fail after decrypt)")
-                    return None
+                    raise DataValidationError("CRC fail after decrypt")
             else:
                 write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
                 callback_ui_error("E52 - Invalid Data Received (SOP/EOP fail after decrypt)")
-                return None
+                raise DataValidationError("SOP/EOP fail after decrypt")
 
         except Exception as e:
             safe_cleanup()
             write_log("E-42", "Invalid Data Received", "Fail", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
             callback_ui_error(f"E52 - Decrypt failed: {e}")
-            return None
+            raise DecryptionError(f"Decrypt failed: {e}")
 
     # Case 3: Partial mismatch (one marker correct, other wrong)
     else:
@@ -173,7 +174,7 @@ def _validate_frame_data(
         safe_cleanup()
         write_log("E-42", "Invalid Data Received", "Fail", f"SOP/EOP Mismatch: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
         callback_ui_error("E52 - Invalid Data Received (SOP/EOP Mismatch)")
-        return None
+        raise DataValidationError(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
 
 
 def _extract_device_numbers(
@@ -237,8 +238,8 @@ def _store_handshake_data(
     """
     try:
         turn_BL_Detect_Low()
-    except:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to set BL_Detect low: {e}")
 
     callback_ui_message(f"DU detected: {du_number}, Display: {display_number}")
 
@@ -391,8 +392,12 @@ def read_du_from_serial(
         first_block_hex = received_hex[:REQUIRED_HEX_LENGTH]
         buffer_bytes = bytes.fromhex(first_block_hex)
 
-        result = _validate_frame_data(buffer_bytes, first_block_hex, callback_ui_message, callback_ui_error, phoneNo)
-        if result is None:
+        try:
+            result = _validate_frame_data(buffer_bytes, first_block_hex, callback_ui_message, callback_ui_error, phoneNo)
+            if result is None:
+                return
+        except BootloaderBaseError:
+            # Exception already logged/handled in helper
             return
 
         # 4. Extract and validate device numbers

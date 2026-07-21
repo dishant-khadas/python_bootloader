@@ -134,28 +134,8 @@ class App(ttk.Window):
         self.container = ttk.Frame(self)
         self.container.pack(fill="both", expand=True)
 
-        # Initialize all page frames
+        # Initialize page frames dictionary for lazy loading
         self.frames = {}
-        page_classes = (
-            SplashScreen,
-            ScanPage,
-            WifiListPage,
-            WifiPasswordPage,
-            ManualWifiPage,
-            WifiConnectingPage,
-            LoginPage,
-            ProgramPage,
-            FileSelectionPage,
-            DownloadPage,
-            FirmwareUpdatePage,
-            ErrorPage,
-            TestPage,
-        )
-        
-        for Page in page_classes:
-            frame = Page(parent=self.container, controller=self)
-            frame.place(relwidth=1, relheight=1)
-            self.frames[Page] = frame
 
         # Global DU info label at top-right
         self.du_info_label = ttk.Label(
@@ -196,11 +176,17 @@ class App(ttk.Window):
 
     def show_frame(self, page):
         """
-        Switch to the specified page.
+        Switch to the specified page, instantiating it if not already loaded (lazy loading).
         
         Args:
             page: Page class to show.
         """
+        if page not in self.frames:
+            # Instantiate the page and place it in the container
+            frame = page(parent=self.container, controller=self)
+            frame.place(relwidth=1, relheight=1)
+            self.frames[page] = frame
+            
         frame = self.frames[page]
         frame.tkraise()
         
@@ -221,9 +207,23 @@ class App(ttk.Window):
             message: Error message details.
             return_frame: Page class to return to on back button.
         """
+        if ErrorPage not in self.frames:
+            self.show_frame(ErrorPage) # This will lazy-load it and bring it to front
+            
         error_page = self.frames[ErrorPage]
         error_page.set_error(title, message, return_frame)
         self.show_frame(ErrorPage)
+
+    def run_on_main_thread(self, func, *args, **kwargs):
+        """
+        Execute a function on the main UI thread safely from a background thread.
+        
+        Args:
+            func: The function to execute.
+            *args: Positional arguments for the function.
+            **kwargs: Keyword arguments for the function.
+        """
+        self.after(0, lambda: func(*args, **kwargs))
 
 
 # ------------ RUN ------------

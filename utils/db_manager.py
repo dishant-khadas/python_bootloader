@@ -140,6 +140,7 @@ class DisplayLogDB:
 
     def _init_db(self):
         conn = self._get_conn()
+        conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute(_CREATE_TABLE_SQL)
         for idx_sql in _CREATE_INDEXES_SQL:
             conn.execute(idx_sql)
