@@ -1,0 +1,117 @@
+{
+  "L_NETWORK_ERROR": {
+    "code": "L-10",
+    "name": "Login Network Error",
+    "description": "Failed to connect to the remote server."
+  },
+  "L_INVALID_CREDENTIALS": {
+    "code": "L-11",
+    "name": "Invalid Credentials",
+    "description": "Incorrect phone number or password."
+  },
+  "L_API_TIMEOUT": {
+    "code": "L-12",
+    "name": "Login API Timeout",
+    "description": "Login request timed out."
+  },
+  "L_MISSING_AUTH_DATA": {
+    "code": "L-13",
+    "name": "Missing Authentication Data",
+    "description": "Missing JWT token or employee data in API response."
+  },
+  "H_SERIAL_OPEN_ERROR": {
+    "code": "H-14",
+    "name": "Serial Port Open Error",
+    "description": "Unable to open serial port."
+  },
+  "H_SERIAL_TIMEOUT": {
+    "code": "H-31",
+    "name": "Serial Read Timeout",
+    "description": "No data received during handshake."
+  },
+  "H_NO_DU_ASSIGNED": {
+    "code": "H-39",
+    "name": "No DU Assigned",
+    "description": "No DU assigned to the Service Engineer."
+  },
+  "H_DU_UPDATE_API_ERROR": {
+    "code": "H-40",
+    "name": "DU_Update API Error",
+    "description": "Failed to fetch firmware update list."
+  },
+  "H_INVALID_FRAME_FORMATTING": {
+    "code": "H-42",
+    "name": "Invalid Frame Formatting",
+    "description": "Missing or invalid SOP/EOP markers."
+  },
+  "H_CRC_VALIDATION_FAILED": {
+    "code": "H-43",
+    "name": "CRC Validation Failed",
+    "description": "CRC mismatch indicating data corruption."
+  },
+  "H_FRAME_DECRYPTION_FAILED": {
+    "code": "H-52",
+    "name": "Frame Decryption Failed",
+    "description": "Failed to decrypt handshake payload."
+  },
+  "H_INVALID_SERIAL_NUMBER": {
+    "code": "H-58",
+    "name": "Invalid Serial Number",
+    "description": "DU or Display Number format is invalid."
+  },
+  "H_INVALID_HARDWARE_TYPE": {
+    "code": "H-59",
+    "name": "Invalid Hardware Type",
+    "description": "Unrecognized hardware identifier."
+  },
+  "D_NO_FIRMWARE_AVAILABLE": {
+    "code": "D-20",
+    "name": "No Firmware Available",
+    "description": "No firmware updates found for this device."
+  },
+  "D_DOWNLOAD_API_FAILED": {
+    "code": "D-21",
+    "name": "Download API Failed",
+    "description": "Failed to download firmware file."
+  },
+  "D_MISSING_HEADERS": {
+    "code": "D-22",
+    "name": "Missing Headers",
+    "description": "Missing Hash or KMS headers in API response."
+  },
+  "D_ENCRYPTED_HASH_MISMATCH": {
+    "code": "D-23",
+    "name": "Encrypted Hash Mismatch",
+    "description": "Downloaded file hash does not match server hash."
+  },
+  "D_ORIGINAL_HASH_MISMATCH": {
+    "code": "D-24",
+    "name": "Original Hash Mismatch",
+    "description": "Decrypted file hash does not match server hash."
+  },
+  "D_KMS_DECRYPTION_ERROR": {
+    "code": "D-25",
+    "name": "KMS Decryption Error",
+    "description": "AWS KMS failed to decrypt data key."
+  },
+  "D_AES_DECRYPTION_ERROR": {
+    "code": "D-26",
+    "name": "AES File Decryption Error",
+    "description": "Failed to decrypt firmware file payload."
+  },
+  "D_SERIAL_WRITE_ERROR": {
+    "code": "D-28",
+    "name": "Serial Write Error",
+    "description": "Failed to send hash packet over serial."
+  },
+  "D_HASH_PACKET_TIMEOUT": {
+    "code": "D-29",
+    "name": "Hash Packet Timeout",
+    "description": "No response received after sending hash packet."
+  },
+  "P_FIRMWARE_UPDATE_FAILED": {
+    "code": "P-15",
+    "name": "Firmware Update Failed",
+    "description": "Flashing process exited with an error."
+  }
+}
