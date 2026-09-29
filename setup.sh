@@ -110,10 +110,17 @@ prompt_default "Device ID" "41999990" DEVICE_ID
 prompt_default "Server URL" "https://bootloader.czarmetricsystem.com/" SERVER_URL
 prompt_default "Bootloader Detect GPIO Pin (BL_DETECT_PIN)" "17" BL_DETECT_PIN
 prompt_default "Display Power GPIO Pin (DISPLAY_ON_PIN)" "27" DISPLAY_ON_PIN
-prompt_default "AES Key Hex" "603de52c073b6108d72d9810a30914dff4be2b73aef0857d77811f3" AES_KEY_HEX
-prompt_default "AES IV Hex" "2ef451f1de828d2a662a9fc34728d2a66" AES_IV_HEX
+prompt_default "AES Key Hex" "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4" AES_KEY_HEX
+prompt_default "AES IV Hex" "2ef451f1de8a2fde02a9fc34728d2a66" AES_IV_HEX
 prompt_default "AWS Access Key ID" "AKIIBOYBOFJ5V6XDIBOY" AWS_ACCESS_KEY_ID
 prompt_default "AWS Secret Access Key" "Yde0quTcvidpFxrX0ibB1r2rVVhdfhkjuerh" AWS_SECRET_ACCESS_KEY
+
+# Detect Raspberry Pi model for GPIO chip (Pi 4 uses gpiochip0, Pi 5 uses gpiochip4)
+if grep -q "Raspberry Pi 5" /proc/cpuinfo 2>/dev/null || grep -q "Raspberry Pi 5" /proc/device-tree/model 2>/dev/null; then
+    DETECTED_GPIOCHIP="gpiochip4"
+else
+    DETECTED_GPIOCHIP="gpiochip0"
+fi
 
 # Write user settings to .env
 cat > .env << EOF
@@ -127,7 +134,7 @@ SERIAL_BAUD=115200
 SERIAL_TIMEOUT=15
 
 # GPIO Configuration
-GPIOCHIP=gpiochip4
+GPIOCHIP=$DETECTED_GPIOCHIP
 BL_DETECT_PIN=$BL_DETECT_PIN
 DISPLAY_ON_PIN=$DISPLAY_ON_PIN
 

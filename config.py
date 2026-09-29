@@ -69,8 +69,18 @@ class Config:
     AES_KEY: bytes | None = None
     AES_IV: bytes | None = None
     
+    if AES_KEY_HEX:
+        AES_KEY_HEX = AES_KEY_HEX.strip().strip("'\"")
+    if AES_IV_HEX:
+        AES_IV_HEX = AES_IV_HEX.strip().strip("'\"")
+        
     if AES_KEY_HEX and AES_IV_HEX:
         try:
+            if len(AES_KEY_HEX) != 64:
+                raise ValueError(f"AES_KEY_HEX must be exactly 64 hexadecimal characters (32 bytes / 256 bits), got {len(AES_KEY_HEX)} characters")
+            if len(AES_IV_HEX) != 32:
+                raise ValueError(f"AES_IV_HEX must be exactly 32 hexadecimal characters (16 bytes / 128 bits), got {len(AES_IV_HEX)} characters")
+
             AES_KEY = bytes.fromhex(AES_KEY_HEX)
             AES_IV = bytes.fromhex(AES_IV_HEX)
             
