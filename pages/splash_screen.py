@@ -97,7 +97,7 @@ class SplashScreen(ttk.Frame):
         # Auto-detect WiFi and go to appropriate page
         ssid = get_connected_ssid()
         if ssid:
-            self.controller.frames[LoginPage].show_change_wifi_button()
             self.controller.show_frame(LoginPage)
+            self.controller.frames[LoginPage].show_change_wifi_button()
         else:
             self.controller.show_frame(ScanPage)

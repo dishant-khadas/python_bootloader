@@ -56,6 +56,24 @@ from core.models import init_db
 init_db()
 
 
+class FrameDict(dict):
+    """
+    Dictionary that lazily instantiates Tkinter page frames on first access.
+    
+    Ensures that accessing `frames[PageClass]` never raises KeyError and
+    instantiates the requested page in the container on demand.
+    """
+    def __init__(self, controller):
+        super().__init__()
+        self.controller = controller
+
+    def __missing__(self, page):
+        frame = page(parent=self.controller.container, controller=self.controller)
+        frame.place(relwidth=1, relheight=1)
+        self[page] = frame
+        return frame
+
+
 class App(ttk.Window):
     """
     Main application window and frame controller.
@@ -135,7 +153,7 @@ class App(ttk.Window):
         self.container.pack(fill="both", expand=True)
 
         # Initialize page frames dictionary for lazy loading
-        self.frames = {}
+        self.frames = FrameDict(self)
 
         # Global DU info label at top-right
         self.du_info_label = ttk.Label(
@@ -174,6 +192,15 @@ class App(ttk.Window):
             self.du_info_label.config(text="")
             self.du_info_label.lower()
 
+    def get_frame(self, page):
+        """
+        Get or lazily instantiate the specified page frame.
+        
+        Args:
+            page: Page class to retrieve.
+        """
+        return self.frames[page]
+
     def show_frame(self, page):
         """
         Switch to the specified page, instantiating it if not already loaded (lazy loading).
@@ -181,12 +208,6 @@ class App(ttk.Window):
         Args:
             page: Page class to show.
         """
-        if page not in self.frames:
-            # Instantiate the page and place it in the container
-            frame = page(parent=self.container, controller=self)
-            frame.place(relwidth=1, relheight=1)
-            self.frames[page] = frame
-            
         frame = self.frames[page]
         frame.tkraise()
         
@@ -207,9 +228,6 @@ class App(ttk.Window):
             message: Error message details.
             return_frame: Page class to return to on back button.
         """
-        if ErrorPage not in self.frames:
-            self.show_frame(ErrorPage) # This will lazy-load it and bring it to front
-            
         error_page = self.frames[ErrorPage]
         error_page.set_error(title, message, return_frame)
         self.show_frame(ErrorPage)
