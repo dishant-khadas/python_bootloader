@@ -249,6 +249,12 @@ class FirmwareUpdatePage(ttk.Frame):
         
         err_code = ErrorCode.P_FIRMWARE_UPDATE_FAILED
         
+        state = AppState.get_instance()
+        phone_no = state.phone_number or getattr(self.controller, "phone", "") or ""
+        du_num = state.du_number or getattr(self.controller, "du_options", {}).get("duNumber", "")
+        disp_num = state.display_number or getattr(self.controller, "du_options", {}).get("displayNumber", "")
+        file_name = state.selected_file_name or getattr(self.controller, "selected_file_name", "")
+
         # Log error
         write_log(
             errorCode=err_code,
@@ -256,10 +262,10 @@ class FirmwareUpdatePage(ttk.Frame):
             result="Fail",
             description=error_msg,
             device_id=config.DEVICE_ID,
-            phoneNo=getattr(self.controller, "phone", ""),
-            duNumber=getattr(self.controller, "du_options", {}).get("duNumber", ""),
-            displayNumber=getattr(self.controller, "du_options", {}).get("displayNumber", ""),
-            fileName=getattr(self.controller, "selected_file_name", ""),
+            phoneNo=phone_no,
+            duNumber=str(du_num) if du_num else "",
+            displayNumber=str(disp_num) if disp_num else "",
+            fileName=str(file_name) if file_name else "",
         )
         
         safe_cleanup()

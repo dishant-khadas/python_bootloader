@@ -24,6 +24,7 @@ from core.protocol.constants import (
     PHONE_START, PHONE_END, DEVICE_ID_START, DEVICE_ID_END
 )
 from core.protocol.crc import calculate_crc16, calculate_little_endian
+from config import config
 from utils.logger import logger
 
 
@@ -116,20 +117,24 @@ def create_512byte_packet_v12(
     packet[HASH_START:HASH_END] = filehash_bytes
     
     # Bytes 33-40: Employee code (8 bytes, pad with ASCII spaces)
-    emp_bytes = employee_code.encode('ascii')[:8].ljust(8, b' ')
+    emp_str = str(employee_code or "CZART000")
+    emp_bytes = emp_str.encode('ascii')[:8].ljust(8, b' ')
     packet[EMPLOYEE_CODE_START:EMPLOYEE_CODE_END] = emp_bytes
     
     # Bytes 41-65: Username (25 bytes, pad with ASCII spaces)
-    user_bytes = username.encode('ascii')[:25].ljust(25, b' ')
+    user_str = str(username or "TESTUSER")
+    user_bytes = user_str.encode('ascii')[:25].ljust(25, b' ')
     packet[USERNAME_START:USERNAME_END] = user_bytes
     
     # Bytes 66-81: Phone number (16 bytes)
-    # Convert "+91-7347530726" to bytes, then pad with null bytes
-    phone_bytes = phone_number.encode('ascii')[:16].ljust(16, b' ')
+    # Convert phone number to bytes, then pad with ASCII spaces
+    phone_str = str(phone_number or "")
+    phone_bytes = phone_str.encode('ascii')[:16].ljust(16, b' ')
     packet[PHONE_START:PHONE_END] = phone_bytes
 
     # Bytes 82-89: Device ID (8 bytes)
-    deviceId_bytes = device_id.encode('ascii')[:8].ljust(8, b' ')
+    dev_str = str(device_id or config.DEVICE_ID or "")
+    deviceId_bytes = dev_str.encode('ascii')[:8].ljust(8, b' ')
     packet[DEVICE_ID_START:DEVICE_ID_END] = deviceId_bytes
     
     # Bytes 82-509: Already zeros (bytearray default initialization)

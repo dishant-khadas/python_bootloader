@@ -64,7 +64,7 @@ def _validate_frame_data(
     first_block_hex: str,
     callback_ui_message,
     callback_ui_error,
-    phoneNo: str,
+    phoneNo: str = "",
 ) -> dict | None:
     """
     Validate the received 512-byte frame data.
@@ -92,6 +92,8 @@ def _validate_frame_data(
 
     logger.debug(f"buffer len: {len(buffer_bytes)}")
     logger.info(f"SOP: {SOP}, EOP: {EOP}")
+
+    phoneNo = phoneNo or AppState.get_instance().phone_number or ""
 
     # Case 1: Unencrypted frame
     if validate_sop_eop(buffer_bytes):
@@ -186,7 +188,7 @@ def _validate_frame_data(
 def _extract_device_numbers(
     final_hex: str,
     callback_ui_error,
-    phoneNo: str,
+    phoneNo: str = "",
 ) -> tuple[int, int] | None:
     """
     Parse and validate DU and Display serial numbers from frame hex data.
@@ -199,6 +201,7 @@ def _extract_device_numbers(
     Returns:
         (du_number, display_number) tuple on success, None on failure.
     """
+    phoneNo = phoneNo or AppState.get_instance().phone_number or ""
     try:
         du_number, display_number = parse_du_and_display(final_hex)
     except Exception as e:
@@ -274,13 +277,13 @@ def _store_handshake_data(
 
 def _fetch_and_return(
     token: str,
-    phoneNo: str,
-    du_number: int,
-    display_number: int,
-    is_encrypted: bool,
-    encryption_key: bytes | None,
-    callback_ui_success,
-    callback_ui_error,
+    phoneNo: str = "",
+    du_number: int = 0,
+    display_number: int = 0,
+    is_encrypted: bool = False,
+    encryption_key: bytes | None = None,
+    callback_ui_success = None,
+    callback_ui_error = None,
 ) -> None:
     """
     Call DU_Update API and invoke the appropriate callback.
@@ -295,6 +298,7 @@ def _fetch_and_return(
         callback_ui_success: Success callback.
         callback_ui_error: Error callback.
     """
+    phoneNo = phoneNo or AppState.get_instance().phone_number or ""
     success, options_or_msg, _ = fetch_du_list(token, du_number, display_number)
     logger.info(f"DU_Update API result: {success, options_or_msg}")
 
@@ -333,10 +337,10 @@ def _fetch_and_return(
 
 def read_du_from_serial(
     token: str,
-    phoneNo: str,
-    callback_ui_message: Callable[[str], None],
-    callback_ui_success: Callable[[dict], None],
-    callback_ui_error: Callable[[str], None],
+    phoneNo: str = "",
+    callback_ui_message: Callable[[str], None] = lambda _: None,
+    callback_ui_success: Callable[[dict], None] = lambda _: None,
+    callback_ui_error: Callable[[str], None] = lambda _: None,
     serial_port: str = DEFAULT_SERIAL_PORT,
     baudrate: int = DEFAULT_BAUDRATE,
 ):
@@ -361,6 +365,7 @@ def read_du_from_serial(
     """
 
     try:
+        phoneNo = phoneNo or AppState.get_instance().phone_number or ""
         # 1. Raise BL detect HIGH to signal readiness
         try:
             turn_BL_Detect_High()

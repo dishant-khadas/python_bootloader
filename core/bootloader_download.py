@@ -108,30 +108,13 @@ def _download_firmware(
     file_id: str,
     token: str,
     device_id: str,
-    phoneNo: str,
-    duNumber: str,
-    displayNumber: str,
-    callback_message,
-    callback_error,
+    phoneNo: str = "",
+    duNumber: str = "",
+    displayNumber: str = "",
+    callback_message = None,
+    callback_error = None,
 ) -> dict | None:
-    """
-    Download firmware file from server and verify its integrity.
-
-    Downloads the file, extracts required headers, and validates the
-    encrypted file hash against the server-provided hash.
-
-    Args:
-        file_id: Server file ID to download.
-        token: Bearer auth token.
-        device_id: Device identifier for logging.
-        phoneNo, duNumber, displayNumber: For error logging.
-        callback_message: Status update callback.
-        callback_error: Error callback.
-
-    Returns:
-        dict with keys {'file_bytes', 'original_hash', 'encrypted_key_hdr'}
-        on success, or None on failure.
-    """
+    phoneNo = phoneNo or AppState.get_instance().phone_number or ""
     callback_message(f"Requesting file from server...")
     server_url = os.getenv("SERVER_URL")
     if not server_url:
@@ -205,31 +188,14 @@ def _decrypt_firmware(
     original_hash: str,
     encrypted_key_hdr: str,
     device_id: str,
-    phoneNo: str,
-    duNumber: str,
-    displayNumber: str,
-    file_id: str,
-    callback_message,
-    callback_error,
+    phoneNo: str = "",
+    duNumber: str = "",
+    displayNumber: str = "",
+    file_id: str = "",
+    callback_message = None,
+    callback_error = None,
 ) -> dict | None:
-    """
-    Decrypt the firmware file using KMS-decrypted data key.
-
-    Parses the encrypted key header, decrypts it via KMS, uses the
-    resulting key to decrypt the firmware, and verifies the original hash.
-
-    Args:
-        file_bytes: Downloaded encrypted firmware bytes.
-        original_hash: Expected hash of decrypted file.
-        encrypted_key_hdr: JSON string containing base64-encoded encrypted key.
-        device_id, phoneNo, duNumber, displayNumber, file_id: For logging.
-        callback_message: Status update callback.
-        callback_error: Error callback.
-
-    Returns:
-        dict with keys {'decrypted_bytes', 'original_hash'} on success,
-        or None on failure.
-    """
+    phoneNo = phoneNo or AppState.get_instance().phone_number or ""
     callback_message("Please Wait...")
 
     # Parse encrypted key header
@@ -322,14 +288,17 @@ def _prepare_packet(
         from core.bootloader_version_handler import BootloaderVersionFactory, BootloaderVersionContext
 
         strategy = BootloaderVersionFactory.get_strategy(bootloader_version)
+        service_engg_str = (state.service_engineer or "").replace(" ", "")
+        employee_id_str = state.employee_id or "CZART000"
+        phone_str = state.phone_number or ""
         logger.info(f"Using {strategy.__class__.__name__} for v{strategy.version}")
-        logger.info(f"SErvice engg and empid: {state.service_engineer.replace(" ","")} , {state.employee_id}")
-        logger.info(f"Creating BootloaderVersionContext with hash={original_hash[:16]}..., phone={state.phone_number}")
+        logger.info(f"Service engg and empid: {service_engg_str} , {employee_id_str}")
+        logger.info(f"Creating BootloaderVersionContext with hash={original_hash[:16]}..., phone={phone_str}")
         context = BootloaderVersionContext(
             file_hash=original_hash,
-            phone_number=state.phone_number or "",
-            employee_code=state.employee_id,
-            username=state.service_engineer.replace(" ","")
+            phone_number=phone_str,
+            employee_code=employee_id_str,
+            username=service_engg_str or "TESTUSER"
         )
         logger.info(f"PacketContext created successfully")
 
@@ -464,13 +433,13 @@ def download_and_flash(file_id: str,
                        device_id: str,
                        is_encryption_enable: bool,
                        encryption_key: bytes,
-                       phoneNo: str,
-                       duNumber: str,
-                       displayNumber: str,
-                       callback_message,
-                       callback_success,
-                       callback_error,
-                       callback_firmware_update):
+                       phoneNo: str = "",
+                       duNumber: str = "",
+                       displayNumber: str = "",
+                       callback_message = None,
+                       callback_success = None,
+                       callback_error = None,
+                       callback_firmware_update = None):
     """
     Downloads firmware, verifies, decrypts, and writes final hash to serial.
     Runs synchronously — call from a thread.
@@ -488,6 +457,7 @@ def download_and_flash(file_id: str,
     """
 
     try:
+        phoneNo = phoneNo or AppState.get_instance().phone_number or ""
         # Raise BL detect HIGH at start
         try:
             turn_BL_Detect_High()

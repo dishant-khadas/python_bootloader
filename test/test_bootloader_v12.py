@@ -67,14 +67,14 @@ def test_512byte_packet_structure():
     
     # Verify phone number (bytes 66-81)
     phone_section = packet[66:82]
-    expected_phone = b'+91-7347530726' + b'\x00' * 2  # 14 chars + 2 nulls = 16
+    expected_phone = b'+91-7347530726' + b' ' * 2  # 14 chars + 2 spaces = 16
     assert phone_section == expected_phone, f"Phone mismatch: {phone_section}"
     print(f"✓ Phone at bytes 66-81: {phone_section[:14].decode('ascii')}")
     
-    # Verify padding (bytes 82-509 should be 0x00)
-    padding = packet[82:509]
+    # Verify padding (bytes 90-509 should be 0x00, bytes 82-89 is device_id)
+    padding = packet[90:509]
     assert all(b == 0 for b in padding), "Padding should be all zeros"
-    print(f"✓ Padding at bytes 82-509: all zeros ({len(padding)} bytes)")
+    print(f"✓ Padding at bytes 90-509: all zeros ({len(padding)} bytes)")
     
     # CRC16 is at bytes 510-511 (already calculated by function)
     crc_bytes = packet[510:512]

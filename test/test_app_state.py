@@ -43,7 +43,9 @@ def test_auth_state():
     # Set auth
     state.set_auth(phone="+911234567890", token="test_token_123")
     
-    assert state.phone_number == "+911234567890", "Phone number not stored correctly"
+    assert state.phone_number == "+91-1234567890", "Phone number not stored correctly"
+    assert state.phone == "+91-1234567890", "state.phone alias not working"
+    assert state.phoneNo == "+91-1234567890", "state.phoneNo alias not working"
     assert state.jwt_token == "test_token_123", "JWT token not stored correctly"
     
     print("✓ Authentication state stored correctly")
@@ -56,10 +58,10 @@ def test_bootloader_version_extraction():
     state = AppState.get_instance()
     state.reset()
     
-    # Create dummy 512-byte data with bootloader version at bytes 392-393
+    # Create dummy 512-byte data with bootloader version at bytes 393-394
     buffer_bytes = bytearray(512)
-    buffer_bytes[392] = 11  # Version byte 1
-    buffer_bytes[393] = 8   # Version byte 2
+    buffer_bytes[393] = 11  # Version byte 1 (FW_V1_OFFSET)
+    buffer_bytes[394] = 8   # Version byte 2 (FW_V2_OFFSET)
     
     # Set DU data
     state.set_du_data(
@@ -222,7 +224,7 @@ def test_state_summary():
     summary = state.get_state_summary()
     
     assert summary["has_auth"] == True, "Summary should show auth present"
-    assert summary["phone_number"] == "+911234567890", "Summary should show phone"
+    assert summary["phone_number"] == "+91-1234567890", "Summary should show phone"
     assert summary["bootloader_version"] is None, "Summary should show no bootloader version yet"
     
     print(f"✓ State summary works: {summary}")

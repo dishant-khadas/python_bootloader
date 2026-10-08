@@ -196,6 +196,10 @@ class LoginPage(ttk.Frame):
     
         state.service_engineer = emp_name
         state.employee_id = emp_id
+
+        # Also populate controller attributes for backward compatibility
+        self.controller.phone = state.phone_number or phone
+        self.controller.token = token
         
         self.controller.after(0, lambda: self.controller.show_frame(ProgramPage))
 

@@ -108,10 +108,10 @@ def write_log(
     result: str,
     description: str,
     device_id: str,
-    phoneNo: str,
-    duNumber: str,
-    displayNumber: str,
-    fileName: str,
+    phoneNo: str = "",
+    duNumber: str = "",
+    displayNumber: str = "",
+    fileName: str = "",
 ) -> None:
     """
     Write a log entry to the local CSV file and send to remote server.
@@ -136,6 +136,17 @@ def write_log(
         to the remote server for redundancy.
     """
     global next_serial_number
+
+    # Fallback to AppState if phoneNo is empty or None
+    if not phoneNo:
+        try:
+            phoneNo = AppState.get_instance().phone_number or ""
+        except Exception:
+            phoneNo = ""
+    phoneNo = str(phoneNo) if phoneNo else ""
+    duNumber = str(duNumber) if duNumber else ""
+    displayNumber = str(displayNumber) if displayNumber else ""
+    fileName = str(fileName) if fileName else ""
 
     data_sent = 0
     now = datetime.datetime.now()

@@ -38,6 +38,7 @@ Usage:
     state.reset()
 """
 
+import datetime
 import threading
 from typing import Optional
 from utils.logger import logger
@@ -200,6 +201,26 @@ class AppState:
         """Set user's phone number."""
         with self._lock:
             self._phone_number = value
+
+    @property
+    def phone(self) -> Optional[str]:
+        """Alias for phone_number."""
+        return self.phone_number
+
+    @phone.setter
+    def phone(self, value: Optional[str]):
+        """Alias setter for phone_number."""
+        self.phone_number = value
+
+    @property
+    def phoneNo(self) -> Optional[str]:
+        """Alias for phone_number."""
+        return self.phone_number
+
+    @phoneNo.setter
+    def phoneNo(self, value: Optional[str]):
+        """Alias setter for phone_number."""
+        self.phone_number = value
     
     @property
     def jwt_token(self) -> Optional[str]:
@@ -487,13 +508,13 @@ class AppState:
             self._current_display_session_id = value
 
     @property
-    def current_display_session_timestamp(self):
+    def current_display_session_timestamp(self) -> Optional[datetime.datetime]:
         """Timestamp of the active DisplaySession. Shared with ProgrammingLog for consistency."""
         with self._lock:
             return self._current_display_session_timestamp
 
     @current_display_session_timestamp.setter
-    def current_display_session_timestamp(self, value):
+    def current_display_session_timestamp(self, value: Optional[datetime.datetime]):
         """Set to the exact datetime when DisplaySession was created."""
         with self._lock:
             self._current_display_session_timestamp = value
