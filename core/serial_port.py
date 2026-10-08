@@ -105,6 +105,9 @@ class SerialPort:
                 baudrate=self.baudrate,
                 timeout=self.timeout,
             )
+            # Flush existing RX/TX buffers on port open to eliminate power-on noise / stale bytes
+            self._serial.reset_input_buffer()
+            self._serial.reset_output_buffer()
             logger.info(
                 f"Serial port opened: {self.port} "
                 f"(baud={self.baudrate}, timeout={self.timeout}s)"
@@ -143,12 +146,13 @@ class SerialPort:
         timeout_secs: float,
         chunk_size: int = 256,
         on_progress=None,
+        pre_read_action=None,
     ) -> str:
         """
         Read hex data from the serial port until expected length or timeout.
         
-        Opens the port, accumulates data as hex string, and returns when
-        enough data has been received or the timeout expires.
+        Opens the port, flushes stale buffers, executes optional pre_read_action,
+        accumulates data as hex string, and returns when enough data has arrived.
         
         This replaces the ~40-line while loop that was in du_reader.py.
         
@@ -158,6 +162,9 @@ class SerialPort:
             timeout_secs: Maximum seconds to wait for data.
             chunk_size: Bytes to read per iteration. Default 256.
             on_progress: Optional callback(hex_len: int) called after each chunk.
+            pre_read_action: Optional callback() invoked immediately after the port
+                             is opened and flushed, right before reading starts
+                             (e.g. toggling GPIO pins to signal hardware).
             
         Returns:
             str: Accumulated hex string of at least expected_length chars.
@@ -171,6 +178,20 @@ class SerialPort:
         start_time = time.time()
         
         with self as ser:
+            # Ensure buffers are freshly cleared right before transaction starts
+            try:
+                ser.reset_input_buffer()
+                ser.reset_output_buffer()
+            except Exception as flush_err:
+                logger.warning(f"Failed to reset serial buffers: {flush_err}")
+
+            # Trigger hardware handshake (e.g. GPIO toggle) if callback provided
+            if pre_read_action:
+                try:
+                    pre_read_action()
+                except Exception as action_err:
+                    logger.warning(f"pre_read_action failed: {action_err}")
+
             while True:
                 elapsed = time.time() - start_time
                 
@@ -206,6 +227,14 @@ class SerialPort:
                 
                 # Check if we have enough data
                 if len(received_hex) >= expected_length:
+                    # Allow slight grace period to capture in-flight trailing bytes if frame was shifted
+                    try:
+                        time.sleep(0.05)
+                        if ser.in_waiting > 0:
+                            extra = ser.read(min(ser.in_waiting, 64))
+                            received_hex += extra.hex()
+                    except Exception:
+                        pass
                     logger.info(
                         f"Data received: {len(received_hex)} hex chars "
                         f"(expected {expected_length})"

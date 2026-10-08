@@ -59,6 +59,70 @@ HANDSHAKE_TIMEOUT = config.HANDSHAKE_TIMEOUT
 # Private helpers — extracted from the former monolithic read_du_from_serial
 # ---------------------------------------------------------------------------
 
+def _try_align_frame(
+    raw_bytes: bytes,
+    callback_ui_message,
+) -> dict | None:
+    """
+    Attempt to realign a frame that may have leading noise bytes from power-on transients.
+    Scans offsets 1 to 16 for valid unencrypted or encrypted 512-byte frames.
+
+    Args:
+        raw_bytes: Accumulated raw bytes (may be >512 bytes if noise was present).
+        callback_ui_message: Status update callback.
+
+    Returns:
+        dict with validated frame data on success, or None if no valid frame found.
+    """
+    if len(raw_bytes) < 512:
+        return None
+
+    max_offset = min(16, len(raw_bytes) - 512)
+    for offset in range(1, max_offset + 1):
+        candidate = raw_bytes[offset:offset + 512]
+
+        # 1. Check if candidate is a valid unencrypted frame
+        if validate_sop_eop(candidate) and validate_crc(candidate):
+            logger.warning(f"Recovered unencrypted frame at offset {offset} (discarded {offset} noise bytes)")
+            callback_ui_message("Recovered frame alignment (unencrypted)...")
+            fw_v1 = candidate[FW_V1_OFFSET]
+            fw_v2 = candidate[FW_V2_OFFSET]
+            return {
+                "buffer_bytes": candidate,
+                "is_encrypted": get_encryption_flag(fw_v1, fw_v2),
+                "encryption_key": None,
+                "firmware_v1": fw_v1,
+                "firmware_v2": fw_v2,
+            }
+
+        # 2. Check if candidate is a valid encrypted frame
+        try:
+            decrypted_hex = decrypt_hex_block(candidate.hex())
+            decrypted_buf = bytes.fromhex(decrypted_hex)
+            if validate_sop_eop(decrypted_buf) and validate_crc(decrypted_buf):
+                logger.warning(f"Recovered encrypted frame at offset {offset} (discarded {offset} noise bytes)")
+                callback_ui_message("Recovered frame alignment (encrypted)...")
+                fw_v1 = decrypted_buf[FW_V1_OFFSET]
+                fw_v2 = decrypted_buf[FW_V2_OFFSET]
+                encrypted_key_bytes = decrypted_buf[ENC_KEY_START:ENC_KEY_END]
+                try:
+                    dec_key_hex = decrypt_hex_block(encrypted_key_bytes.hex())
+                    encryption_key = bytes.fromhex(dec_key_hex)
+                except Exception:
+                    encryption_key = encrypted_key_bytes
+                return {
+                    "buffer_bytes": decrypted_buf,
+                    "is_encrypted": True,
+                    "encryption_key": encryption_key,
+                    "firmware_v1": fw_v1,
+                    "firmware_v2": fw_v2,
+                }
+        except Exception:
+            pass
+
+    return None
+
+
 def _validate_frame_data(
     buffer_bytes: bytes,
     first_block_hex: str,
@@ -73,9 +137,10 @@ def _validate_frame_data(
       1. Unencrypted: SOP/EOP match directly → CRC check
       2. Encrypted: SOP/EOP mismatch → decrypt → re-check SOP/EOP/CRC
       3. Partial mismatch: one marker matches, other doesn't → error
+    If offset 0 fails, attempts alignment recovery to handle power-on noise bytes.
 
     Args:
-        buffer_bytes: Raw 512-byte frame.
+        buffer_bytes: Raw frame bytes (at least 512 bytes).
         first_block_hex: Hex string of the frame (for decryption).
         callback_ui_message: Status update callback.
         callback_ui_error: Error callback.
@@ -85,32 +150,38 @@ def _validate_frame_data(
         dict with keys {'buffer_bytes', 'is_encrypted', 'encryption_key',
         'firmware_v1', 'firmware_v2'} on success, or None on failure.
     """
-    firmware_v1 = buffer_bytes[FW_V1_OFFSET]
-    firmware_v2 = buffer_bytes[FW_V2_OFFSET]
-    SOP = f"{buffer_bytes[0]:02x}"
-    EOP = f"{buffer_bytes[509]:02x}"
+    frame_512 = buffer_bytes[:512]
+    firmware_v1 = frame_512[FW_V1_OFFSET]
+    firmware_v2 = frame_512[FW_V2_OFFSET]
+    SOP = f"{frame_512[0]:02x}"
+    EOP = f"{frame_512[509]:02x}"
 
     logger.debug(f"buffer len: {len(buffer_bytes)}")
     logger.info(f"SOP: {SOP}, EOP: {EOP}")
 
     phoneNo = phoneNo or AppState.get_instance().phone_number or ""
 
-    # Case 1: Unencrypted frame
-    if validate_sop_eop(buffer_bytes):
+    # Case 1: Unencrypted frame at offset 0
+    if validate_sop_eop(frame_512):
         logger.info("without encryption")
         callback_ui_message("SOP/EOP matched (unencrypted). Checking CRC...")
 
-        if validate_crc(buffer_bytes):
+        if validate_crc(frame_512):
             return {
-                "buffer_bytes": buffer_bytes,
+                "buffer_bytes": frame_512,
                 "is_encrypted": get_encryption_flag(firmware_v1, firmware_v2),
                 "encryption_key": None,
                 "firmware_v1": firmware_v1,
                 "firmware_v2": firmware_v2,
             }
         else:
-            crc_calc = calculate_crc16(buffer_bytes[:510])
-            crc_recv = buffer_bytes[510:512]
+            # Check if an alignment shift recovers CRC
+            aligned = _try_align_frame(buffer_bytes, callback_ui_message)
+            if aligned:
+                return aligned
+
+            crc_calc = calculate_crc16(frame_512[:510])
+            crc_recv = frame_512[510:512]
             callback_ui_message(f"CRC Mismatch: Calc {calculate_little_endian(crc_calc)} vs Recv {crc_recv}")
             safe_cleanup()
             err_code = ErrorCode.H_CRC_VALIDATION_FAILED
@@ -118,26 +189,26 @@ def _validate_frame_data(
             callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
             return None
 
-    # Case 2: Encrypted frame (both markers mismatch)
+    # Case 2: Encrypted frame (both markers mismatch at offset 0)
     elif SOP != "2a" and EOP != "3c":
         logger.info("with encryption")
         callback_ui_message("Encrypted data detected (SOP/EOP mismatch)...")
         try:
             logger.debug(f"first_block_hex: {first_block_hex}")
-            decrypted_hex = decrypt_hex_block(first_block_hex)
+            decrypted_hex = decrypt_hex_block(first_block_hex[:1024])
             logger.debug(f"decrypted_hex: {decrypted_hex}")
-            buffer_bytes = bytes.fromhex(decrypted_hex)
+            decrypted_buffer = bytes.fromhex(decrypted_hex)
 
             # Re-extract fields from decrypted data
-            SOP = f"{buffer_bytes[0]:02x}"
-            EOP = f"{buffer_bytes[509]:02x}"
-            firmware_v1 = buffer_bytes[FW_V1_OFFSET]
-            firmware_v2 = buffer_bytes[FW_V2_OFFSET]
+            dec_SOP = f"{decrypted_buffer[0]:02x}"
+            dec_EOP = f"{decrypted_buffer[509]:02x}"
+            dec_firmware_v1 = decrypted_buffer[FW_V1_OFFSET]
+            dec_firmware_v2 = decrypted_buffer[FW_V2_OFFSET]
 
-            if validate_sop_eop(buffer_bytes):
-                if validate_crc(buffer_bytes):
+            if validate_sop_eop(decrypted_buffer):
+                if validate_crc(decrypted_buffer):
                     # Extract and decrypt encryption key
-                    encrypted_key_bytes = buffer_bytes[ENC_KEY_START:ENC_KEY_END]
+                    encrypted_key_bytes = decrypted_buffer[ENC_KEY_START:ENC_KEY_END]
                     logger.debug(f"Extracted encrypted key: {len(encrypted_key_bytes)} bytes")
 
                     try:
@@ -149,26 +220,38 @@ def _validate_frame_data(
                         encryption_key = encrypted_key_bytes
 
                     return {
-                        "buffer_bytes": buffer_bytes,
+                        "buffer_bytes": decrypted_buffer,
                         "is_encrypted": True,
                         "encryption_key": encryption_key,
-                        "firmware_v1": firmware_v1,
-                        "firmware_v2": firmware_v2,
+                        "firmware_v1": dec_firmware_v1,
+                        "firmware_v2": dec_firmware_v2,
                     }
                 else:
-                    crc_calc = calculate_crc16(buffer_bytes[:510])
-                    crc_recv = buffer_bytes[510:512]
+                    # Check if alignment shift recovers a valid frame
+                    aligned = _try_align_frame(buffer_bytes, callback_ui_message)
+                    if aligned:
+                        return aligned
+                    crc_calc = calculate_crc16(decrypted_buffer[:510])
+                    crc_recv = decrypted_buffer[510:512]
                     err_code = ErrorCode.H_CRC_VALIDATION_FAILED
                     write_log(err_code, get_error_name(err_code), "Fail", f"CRC fail after decrypt: Calculated {calculate_little_endian(crc_calc)} vs Received {crc_recv}", config.DEVICE_ID, phoneNo, "", "", "")
                     callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
                     raise DataValidationError("CRC fail after decrypt")
             else:
+                # Offset 0 decrypt failed SOP/EOP: Check if frame is shifted by leading noise
+                aligned = _try_align_frame(buffer_bytes, callback_ui_message)
+                if aligned:
+                    return aligned
                 err_code = ErrorCode.H_INVALID_FRAME_FORMATTING
-                write_log(err_code, get_error_name(err_code), "Fail", f"SOP/EOP fail after decrypt: SOP={SOP}, EOP={EOP}", config.DEVICE_ID, phoneNo, "", "", "")
+                write_log(err_code, get_error_name(err_code), "Fail", f"SOP/EOP fail after decrypt: SOP={dec_SOP}, EOP={dec_EOP}", config.DEVICE_ID, phoneNo, "", "", "")
                 callback_ui_error(f"{err_code} - {get_error_name(err_code)}")
                 raise DataValidationError("SOP/EOP fail after decrypt")
 
         except Exception as e:
+            if not isinstance(e, BootloaderBaseError):
+                aligned = _try_align_frame(buffer_bytes, callback_ui_message)
+                if aligned:
+                    return aligned
             safe_cleanup()
             err_code = ErrorCode.H_FRAME_DECRYPTION_FAILED
             write_log(err_code, get_error_name(err_code), "Fail", f"Decrypt failed: {e}", config.DEVICE_ID, phoneNo, "", "", "")
@@ -177,6 +260,9 @@ def _validate_frame_data(
 
     # Case 3: Partial mismatch (one marker correct, other wrong)
     else:
+        aligned = _try_align_frame(buffer_bytes, callback_ui_message)
+        if aligned:
+            return aligned
         callback_ui_message(f"Invalid SOP/EOP combination: {SOP}/{EOP}")
         safe_cleanup()
         err_code = ErrorCode.H_INVALID_FRAME_FORMATTING
@@ -366,15 +452,16 @@ def read_du_from_serial(
 
     try:
         phoneNo = phoneNo or AppState.get_instance().phone_number or ""
-        # 1. Raise BL detect HIGH to signal readiness
-        try:
-            turn_BL_Detect_High()
-            turn_display_On()
-        except Exception as e:
-            callback_ui_message(f"Warning: turn_BL_Detect_High failed: {e}")
+        # 1. Trigger hardware handshake after serial port is opened and flushed
+        def trigger_handshake():
+            try:
+                turn_BL_Detect_High()
+                turn_display_On()
+            except Exception as e:
+                callback_ui_message(f"Warning: turn_BL_Detect_High failed: {e}")
 
-        # 2. Read serial data
-        callback_ui_message(f"Validation in Progress...")
+        # 2. Read serial data with clean buffer and handshake trigger
+        callback_ui_message("Validation in Progress...")
         try:
             serial_port_obj = SerialPort(
                 port=serial_port,
@@ -385,6 +472,7 @@ def read_du_from_serial(
                 expected_length=REQUIRED_HEX_LENGTH,
                 timeout_secs=HANDSHAKE_TIMEOUT,
                 on_progress=lambda n: callback_ui_message(f"Received hex length: {n}"),
+                pre_read_action=trigger_handshake,
             )
             callback_ui_message(f"Data received (len: {len(received_hex)})")
         except SerialPortOpenError as e:
@@ -407,9 +495,9 @@ def read_du_from_serial(
             callback_ui_error(f"{err_code} - {get_error_name(err_code)}: {e}")
             return
 
-        # 3. Validate frame data (SOP/EOP, CRC, decrypt if needed)
+        # 3. Validate frame data (SOP/EOP, CRC, decrypt if needed, with noise recovery)
         first_block_hex = received_hex[:REQUIRED_HEX_LENGTH]
-        buffer_bytes = bytes.fromhex(first_block_hex)
+        buffer_bytes = bytes.fromhex(received_hex)
 
         try:
             result = _validate_frame_data(buffer_bytes, first_block_hex, callback_ui_message, callback_ui_error, phoneNo)
